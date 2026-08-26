@@ -219,8 +219,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" \
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
               --title "InkOS VN ${{ steps.version.outputs.release_version }}" \
               --notes "Automated Vietnamese release based on upstream commit ${{ steps.upstream.outputs.upstream_sha }}."
           fi
