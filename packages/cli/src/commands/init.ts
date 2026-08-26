@@ -7,21 +7,23 @@ import { initializeProjectDirectory } from "../project-bootstrap.js";
 export const initCommand = new Command("init")
   .description("Initialize an InkOS project (current directory by default)")
   .argument("[name]", "Project name (creates subdirectory). Omit to init current directory.")
-  .option("--lang <language>", "Default writing language: zh (Chinese) or en (English)", "zh")
+  .option("--lang <language>", "Default writing language: zh (Chinese), en (English), or vi (Vietnamese)", "zh")
   .action(async (name: string | undefined, opts: { lang?: string }) => {
     const projectDir = name ? resolve(process.cwd(), name) : process.cwd();
 
     try {
       await mkdir(projectDir, { recursive: true });
       await initializeProjectDirectory(projectDir, {
-        language: (opts.lang === "en" ? "en" : "zh"),
+        language: opts.lang === "vi" ? "vi" : opts.lang === "en" ? "en" : "zh",
         overwriteSupportFiles: true,
       });
 
       log(`Project initialized at ${projectDir}`);
       log("");
-      const isEnglish = (opts.lang ?? "zh") === "en";
-      const exampleCreateLines = isEnglish
+      const selectedLanguage = opts.lang === "vi" ? "vi" : opts.lang === "en" ? "en" : "zh";
+      const exampleCreateLines = selectedLanguage === "vi"
+        ? ["  inkos book create --title 'Sổ nợ cảng đêm' --genre trinh-tham --platform other --lang vi"]
+        : selectedLanguage === "en"
         ? ["  inkos book create --title 'My Novel' --genre progression --platform royalroad --lang en"]
         : [
           "  inkos book create --title '我的小说' --genre xuanhuan --platform tomato",

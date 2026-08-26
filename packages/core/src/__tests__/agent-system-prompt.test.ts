@@ -36,6 +36,13 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).not.toContain("architect");
     });
 
+    it("adds the Vietnamese prose contract to Vietnamese sessions", () => {
+      const prompt = buildAgentSystemPrompt(null, "vi");
+      expect(prompt).toContain("Vietnamese language and prose contract (mandatory)");
+      expect(prompt).toContain("Follow the user's Vietnamese register and voice");
+      expect(prompt).toContain("never switch the creative output to English or Chinese");
+    });
+
     it("edit mode treats role cards as editable truth files", () => {
       const prompt = buildAgentSystemPrompt("my-book", "zh", "edit");
       expect(prompt).toContain("外部编辑助手");

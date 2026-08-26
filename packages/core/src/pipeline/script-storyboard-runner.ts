@@ -38,7 +38,7 @@ export interface ScriptCreationRunOptions {
   readonly requirements?: string;
   readonly episodeCount?: number;
   readonly episodeDuration?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -57,7 +57,7 @@ export interface StoryboardCreationRunOptions {
   readonly aspectRatio?: string;
   readonly granularity?: string;
   readonly maxShots?: number;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -77,7 +77,7 @@ export interface InteractiveFilmCreationRunOptions {
   readonly episodeDuration?: string;
   readonly budget?: string;
   readonly referenceMode?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -200,9 +200,9 @@ export async function runScriptCreation(
   };
 }
 
-function assertScriptDeliverable(script: string, language: "zh" | "en"): void {
-  const characterHeadings = language === "en" ? ["Characters"] : ["人物", "Characters"];
-  const scriptHeadings = language === "en" ? ["Script"] : ["剧本正文", "Script"];
+function assertScriptDeliverable(script: string, language: "zh" | "en" | "vi"): void {
+  const characterHeadings = language !== "zh" ? ["Characters"] : ["人物", "Characters"];
+  const scriptHeadings = language !== "zh" ? ["Script"] : ["剧本正文", "Script"];
   const body = extractMarkdownSection(
     script,
     scriptHeadings,
@@ -211,7 +211,7 @@ function assertScriptDeliverable(script: string, language: "zh" | "en"): void {
   const scriptSectionCount = countMarkdownSections(script, scriptHeadings);
   if (!body?.trim() || characterSectionCount !== 1 || scriptSectionCount !== 1) {
     throw new Error(
-      language === "en"
+      language !== "zh"
         ? "Script production did not return exactly one `## Characters` and one non-empty `## Script` deliverable. No artifacts were committed."
         : "剧本生产没有返回且仅返回一份 `## 人物` 和一份非空 `## 剧本正文` 交付段，未提交任何产物。",
     );
@@ -509,7 +509,7 @@ async function createInteractiveFilmStoryGraph(
     readonly onProgress?: (message: string) => void;
   },
 ): Promise<StoryGraph> {
-  args.onProgress?.(args.input.language === "en"
+  args.onProgress?.(args.input.language !== "zh"
     ? "Building the playable story graph through the structured authoring harness..."
     : "正在通过结构化创作内核生成可玩故事图谱……");
   return generateStoryGraph(runtime.client, runtime.model, {
@@ -638,9 +638,9 @@ async function ensureProjectDir(projectRoot: string, relativePath: string): Prom
 function mergeRequirements(
   instruction: string,
   requirements: string | undefined,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
-  const extraLabel = language === "en" ? "Additional requirements:" : "补充要求：";
+  const extraLabel = language !== "zh" ? "Additional requirements:" : "补充要求：";
   return [
     instruction.trim(),
     requirements?.trim() ? `\n${extraLabel}\n${requirements.trim()}` : "",

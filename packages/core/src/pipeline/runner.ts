@@ -165,7 +165,7 @@ function buildTitleCatalog(
 export function buildSpinoffFoundationContext(
   parentCanon: string,
   direction: string | undefined,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): string {
   const dir = direction?.trim();
   if (language === "en") {
@@ -541,7 +541,7 @@ export class PipelineRunner {
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
     readonly styleGuide?: string;
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly stageLanguage: LengthLanguage;
     readonly targetChapters?: number;
     readonly maxRetries?: number;
@@ -628,7 +628,7 @@ export class PipelineRunner {
       }>;
       readonly overallFeedback: string;
     },
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     const dimensionLines = review.dimensions
       .map((dimension) => (
@@ -768,7 +768,7 @@ export class PipelineRunner {
     this.logStage(stageLanguage, { zh: "生成基础设定", en: "generating foundation" });
     const { profile: gp } = await this.loadGenreProfile(book.genre);
     const reviewer = new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", book.id));
-    const resolvedLanguage = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
+    const resolvedLanguage = book.language ?? gp.language;
     const foundation = await this.generateAndReviewFoundation({
       generate: (reviewFeedback) => architect.generateFoundation(
         book,
@@ -898,7 +898,7 @@ export class PipelineRunner {
     });
 
     const reviewer = new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", bookId));
-    const resolvedLanguage = (book.language ?? "zh") === "en" ? "en" as const : "zh" as const;
+    const resolvedLanguage = book.language ?? "zh";
     try {
       const review = await reviewer.review({
         foundation,
@@ -1013,7 +1013,7 @@ export class PipelineRunner {
     const reviewer = new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", book.id));
     this.logStage(stageLanguage, { zh: "生成同人基础设定", en: "generating fanfic foundation" });
     const { profile: gp } = await this.loadGenreProfile(book.genre);
-    const resolvedLanguage = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
+    const resolvedLanguage = book.language ?? gp.language;
     const foundation = await this.generateAndReviewFoundation({
       generate: (reviewFeedback) => architect.generateFanficFoundation(
         book,
@@ -1071,7 +1071,7 @@ export class PipelineRunner {
     const architect = new ArchitectAgent(this.agentCtxFor("architect", book.id));
     const reviewer = new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", book.id));
     const { profile: gp } = await this.loadGenreProfile(book.genre);
-    const resolvedLanguage = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
+    const resolvedLanguage = book.language ?? gp.language;
     const spinoffContext = buildSpinoffFoundationContext(parentCanon, direction, resolvedLanguage);
 
     this.logStage(stageLanguage, { zh: "生成番外基础设定", en: "generating side-story foundation" });
@@ -2690,7 +2690,7 @@ export class PipelineRunner {
 
     const book = await this.state.loadBookConfig(bookId);
     const { profile: gp } = await this.loadGenreProfile(book.genre);
-    const lang = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
+    const lang = book.language ?? gp.language;
 
     // Statistical fingerprint (language-aware: words for en, characters for zh)
     const profile = analyzeStyle(sample, sourceName, lang);
@@ -2805,7 +2805,7 @@ Base the analysis on the text's actual features, not generalities. Support each 
       readonly rhetoricalFeatures: ReadonlyArray<string>;
       readonly sourceName?: string;
     },
-    options: { readonly language: "zh" | "en"; readonly reason: string },
+    options: { readonly language: "zh" | "en" | "vi"; readonly reason: string },
   ): string {
     if (options.language === "en") {
       return [
@@ -3058,7 +3058,7 @@ ${matrix}`,
               generate: (reviewFeedback) => architect.generateFoundationFromImport(book, foundationSource, undefined, reviewFeedback, { importMode: "series" }),
               reviewer: new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", input.bookId)),
               mode: "series",
-              language: resolvedLanguage === "en" ? "en" : "zh",
+              language: resolvedLanguage,
               stageLanguage: resolvedLanguage,
               targetChapters: book.targetChapters,
             })

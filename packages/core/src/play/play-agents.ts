@@ -10,11 +10,12 @@ import {
   type PlayMutationInput,
 } from "../models/play.js";
 import { appendPromptPackGuidance } from "../prompts/prompt-pack.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export interface PlayActionInterpreterInput {
   readonly input: string;
   readonly sceneBrief: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 export interface PlayWorldMutatorInput {
@@ -22,7 +23,7 @@ export interface PlayWorldMutatorInput {
   readonly input: string;
   readonly action: PlayActionIntentInput;
   readonly context: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 export interface PlaySceneRenderInput {
@@ -32,7 +33,7 @@ export interface PlaySceneRenderInput {
   readonly mutationSummary: string;
   readonly stateBrief: string;
   readonly replayContext?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   // The world's premise — a persistent anchor so the scene stays in the
   // established era/setting/genre and doesn't drift (a modern shop must not grow
   // night-watchmen and oil lamps).
@@ -47,7 +48,7 @@ export interface PlaySceneReconcileInput {
   readonly sceneText: string;
   readonly context: string;
   readonly stateBrief: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly worldPremise?: string;
 }
 
@@ -188,7 +189,7 @@ export class PlayActionInterpreterAgent extends BaseAgent {
     let raw: unknown = {};
     try {
       const response = await chatWithRetry(() => this.chat([
-        { role: "system", content: buildActionInterpreterSystemPrompt(input.language ?? "zh") },
+        { role: "system", content: withVietnameseOutputContract(buildActionInterpreterSystemPrompt(input.language ?? "zh"), input.language) },
         { role: "user", content: buildActionInterpreterUserPrompt(input, input.language ?? "zh") },
       ], { temperature: 0.15, maxTokens: 1024 }));
       raw = parseJson(response.content);
@@ -217,7 +218,7 @@ export class PlayWorldMutatorAgent extends BaseAgent {
       { promptId: "play.mutator", projectRoot: this.ctx.projectRoot },
     );
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: withVietnameseOutputContract(systemPrompt, input.language) },
       { role: "user", content: buildWorldMutatorUserPrompt(input, language) },
     ];
 
@@ -240,7 +241,7 @@ export class PlayWorldMutatorAgent extends BaseAgent {
       if (attempt === 0) {
         messages.push({
           role: "user",
-          content: language === "en"
+          content: language !== "zh"
             ? "No usable world result was submitted. Call submit_world_mutation with a summary and the concrete state, entity, relationship, or time changes. If the action cannot proceed, submit blocked=true with blockedReason."
             : "刚才没有提交可用的世界结算。调用 submit_world_mutation，写明 summary 和具体的状态、实体、关系或时间变化；动作不能执行时提交 blocked=true 与 blockedReason。",
         });
@@ -249,7 +250,7 @@ export class PlayWorldMutatorAgent extends BaseAgent {
 
     return withHostMutationIdentity(PlayMutationSchema.parse({
       blocked: true,
-      blockedReason: language === "en"
+      blockedReason: language !== "zh"
         ? "The model did not return a usable world-state transition. This turn did not advance."
         : "模型没有返回可用的世界状态变更，本回合未推进。",
     }), input.turn, actionKind);
@@ -348,7 +349,7 @@ export class PlaySceneRendererAgent extends BaseAgent {
       { promptId: "play.renderer", projectRoot: this.ctx.projectRoot },
     );
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: withVietnameseOutputContract(systemPrompt, input.language) },
       { role: "user", content: buildSceneRendererUserPrompt(input, language) },
     ];
     const raw = await chatWithRetry(() => this.submitStructured(
@@ -375,7 +376,7 @@ export class PlaySceneReconcilerAgent extends BaseAgent {
     const actionKind = PlayActionIntentSchema.parse(input.action).actionKind;
     const empty = emptyReconciliation(input.turn, actionKind);
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: buildSceneReconcilerSystemPrompt(language) },
+      { role: "system", content: withVietnameseOutputContract(buildSceneReconcilerSystemPrompt(language), language) },
       { role: "user", content: buildSceneReconcilerUserPrompt(input, language) },
     ];
     try {
@@ -407,8 +408,8 @@ function emptyReconciliation(turn: number, actionKind: PlayActionIntent["actionK
   };
 }
 
-function buildSceneReconcilerSystemPrompt(language: "zh" | "en"): string {
-  if (language === "en") {
+function buildSceneReconcilerSystemPrompt(language: "zh" | "en" | "vi"): string {
+  if (language !== "zh") {
     return [
       "You reconcile an interactive-fiction scene with the world graph.",
       "Compare the rendered prose against the already applied changes and current state summary.",
@@ -428,10 +429,10 @@ function buildSceneReconcilerSystemPrompt(language: "zh" | "en"): string {
   ].join("\n");
 }
 
-function buildSceneReconcilerUserPrompt(input: PlaySceneReconcileInput, language: "zh" | "en"): string {
+function buildSceneReconcilerUserPrompt(input: PlaySceneReconcileInput, language: "zh" | "en" | "vi"): string {
   const actionKind = PlayActionIntentSchema.parse(input.action).actionKind;
   const eventId = `evt-${input.turn}`;
-  if (language === "en") {
+  if (language !== "zh") {
     return [
       `eventId: ${eventId}`,
       `turn: ${input.turn}`,
@@ -477,8 +478,8 @@ function buildSceneReconcilerUserPrompt(input: PlaySceneReconcileInput, language
   ].join("\n");
 }
 
-function buildActionInterpreterSystemPrompt(language: "zh" | "en"): string {
-  if (language === "en") {
+function buildActionInterpreterSystemPrompt(language: "zh" | "en" | "vi"): string {
+  if (language !== "zh") {
     return [
       "You are an interactive-fiction action interpreter.",
       "Your job is to normalize one line of the player's natural language into one of five action kinds: look / say / move / do / wait.",
@@ -496,8 +497,8 @@ function buildActionInterpreterSystemPrompt(language: "zh" | "en"): string {
   ].join("\n");
 }
 
-function buildActionInterpreterUserPrompt(input: PlayActionInterpreterInput, language: "zh" | "en"): string {
-  if (language === "en") {
+function buildActionInterpreterUserPrompt(input: PlayActionInterpreterInput, language: "zh" | "en" | "vi"): string {
+  if (language !== "zh") {
     return [
       "Current scene:",
       input.sceneBrief,
@@ -519,8 +520,8 @@ function buildActionInterpreterUserPrompt(input: PlayActionInterpreterInput, lan
   ].join("\n");
 }
 
-function buildWorldMutatorSystemPrompt(language: "zh" | "en"): string {
-  if (language === "en") {
+function buildWorldMutatorSystemPrompt(language: "zh" | "en" | "vi"): string {
+  if (language !== "zh") {
     return [
       "You are an interactive-fiction world-state drafter.",
       "Based only on the player's action and the current context, propose this turn's possible state changes as a draft.",
@@ -566,8 +567,8 @@ function buildWorldMutatorSystemPrompt(language: "zh" | "en"): string {
   ].join("\n");
 }
 
-function buildWorldMutatorUserPrompt(input: PlayWorldMutatorInput, language: "zh" | "en"): string {
-  if (language === "en") {
+function buildWorldMutatorUserPrompt(input: PlayWorldMutatorInput, language: "zh" | "en" | "vi"): string {
+  if (language !== "zh") {
     return [
       `turn: ${input.turn}`,
       "Player's words:",
@@ -597,8 +598,8 @@ function buildWorldMutatorUserPrompt(input: PlayWorldMutatorInput, language: "zh
   ].join("\n");
 }
 
-export function buildSceneRendererSystemPrompt(mode: "open" | "guided" = "open", language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+export function buildSceneRendererSystemPrompt(mode: "open" | "guided" = "open", language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     const base = [
       "You are an interactive-fiction scene-response author.",
       "Write the response only from the already-applied state; do not overturn the reducer's results.",
@@ -628,10 +629,10 @@ export function buildSceneRendererSystemPrompt(mode: "open" | "guided" = "open",
   return [...base, actionsRule, "输出严格 JSON：sceneText, suggestedActions。"].join("\n");
 }
 
-function buildSceneRendererUserPrompt(input: PlaySceneRenderInput, language: "zh" | "en"): string {
+function buildSceneRendererUserPrompt(input: PlaySceneRenderInput, language: "zh" | "en" | "vi"): string {
   const premise = input.worldPremise?.trim();
   const context = input.context?.trim();
-  if (language === "en") {
+  if (language !== "zh") {
     return [
       ...(premise ? ["World setting (always obey):", premise, ""] : []),
       ...(context ? ["Authoritative context before this action:", context, ""] : []),

@@ -1,11 +1,12 @@
 import { BaseAgent } from "./base.js";
 import type { ChapterMemo } from "../models/input-governance.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export interface PolishChapterInput {
   readonly chapterContent: string;
   readonly chapterNumber: number;
   readonly chapterMemo?: ChapterMemo;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly temperature?: number;
 }
 
@@ -36,7 +37,7 @@ export class PolisherAgent extends BaseAgent {
 
   async polishChapter(input: PolishChapterInput): Promise<PolishChapterOutput> {
     const language = input.language ?? "zh";
-    const isEnglish = language === "en";
+    const isEnglish = language !== "zh";
 
     const memoBlock = input.chapterMemo
       ? isEnglish
@@ -54,7 +55,7 @@ export class PolisherAgent extends BaseAgent {
 
     const response = await this.chat(
       [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: withVietnameseOutputContract(systemPrompt, language) },
         { role: "user", content: userPrompt },
       ],
       { temperature: input.temperature ?? 0.4 },

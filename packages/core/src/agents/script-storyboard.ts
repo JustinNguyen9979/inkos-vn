@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.js";
 import { completeLongForm } from "../llm/long-form-completion.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export type ScriptTargetFormat =
   | "vertical_short_drama"
@@ -16,7 +17,7 @@ export interface ScriptCreationInput {
   readonly requirements?: string;
   readonly episodeCount?: number;
   readonly episodeDuration?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 export interface StoryboardCreationInput {
@@ -28,7 +29,7 @@ export interface StoryboardCreationInput {
   readonly aspectRatio?: string;
   readonly granularity?: string;
   readonly maxShots?: number;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly segment?: {
     readonly label: string;
     readonly index: number;
@@ -47,19 +48,19 @@ export interface InteractiveFilmCreationInput {
   readonly episodeDuration?: string;
   readonly budget?: string;
   readonly referenceMode?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 abstract class LongFormProductionAgent extends BaseAgent {
   protected async recoverProductionMarkdown(
     fragments: string,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
     requiredHeadings: readonly string[],
   ): Promise<string> {
     const response = await this.chat([
       {
         role: "system",
-        content: language === "en"
+        content: withVietnameseOutputContract(language !== "zh"
           ? [
               "You recover one canonical production document after a transport-confirmed output-limit continuation.",
               "The fragments may contain scratch analysis, overlapping suffixes, and complete-document restarts.",
@@ -71,15 +72,15 @@ abstract class LongFormProductionAgent extends BaseAgent {
               "输入片段可能包含思考草稿、重叠后缀和从头重写的完整文档。",
               "返回且只返回一份完整 Markdown 交付稿。保留用户要求和完成度最高的可用内容；删除流程说明、思考草稿、包装文本、重复文档开头和重复小节。",
               "不得概括或缩短实际交付内容。",
-            ].join("\n"),
+            ].join("\n"), language),
       },
       {
         role: "user",
         content: [
-          language === "en" ? "## Required Headings" : "## 必需标题",
+          language !== "zh" ? "## Required Headings" : "## 必需标题",
           ...requiredHeadings.map((heading) => `- ${heading}`),
           "",
-          language === "en" ? "## Output Fragments" : "## 输出片段",
+          language !== "zh" ? "## Output Fragments" : "## 输出片段",
           fragments,
         ].join("\n"),
       },
@@ -99,7 +100,7 @@ export class ScriptCreationAgent extends LongFormProductionAgent {
   async writeScript(input: ScriptCreationInput): Promise<string> {
     const language = input.language ?? "zh";
     const messages = [
-      { role: "system", content: buildScriptCreationSystemPrompt(language) },
+      { role: "system", content: withVietnameseOutputContract(buildScriptCreationSystemPrompt(language), language) },
       { role: "user", content: buildScriptCreationUserPrompt(input, language) },
     ] as const;
     const response = await completeLongForm({
@@ -113,7 +114,7 @@ export class ScriptCreationAgent extends LongFormProductionAgent {
       recoverAfterContinuation: (fragments) => this.recoverProductionMarkdown(
         fragments,
         language,
-        language === "en" ? ["## Characters", "## Script"] : ["## 人物", "## 剧本正文"],
+        language !== "zh" ? ["## Characters", "## Script"] : ["## 人物", "## 剧本正文"],
       ),
     });
     return extractProductionDocument(response.content, input.title);
@@ -128,7 +129,7 @@ export class StoryboardCreationAgent extends LongFormProductionAgent {
   async writeStoryboard(input: StoryboardCreationInput): Promise<string> {
     const language = input.language ?? "zh";
     const messages = [
-      { role: "system", content: buildStoryboardCreationSystemPrompt(language) },
+      { role: "system", content: withVietnameseOutputContract(buildStoryboardCreationSystemPrompt(language), language) },
       { role: "user", content: buildStoryboardCreationUserPrompt(input, language) },
     ] as const;
     const response = await completeLongForm({
@@ -142,7 +143,7 @@ export class StoryboardCreationAgent extends LongFormProductionAgent {
       recoverAfterContinuation: (fragments) => this.recoverProductionMarkdown(
         fragments,
         language,
-        language === "en" ? ["## Storyboard", "## Image Prompts"] : ["## 分镜表", "## 图像提示词"],
+        language !== "zh" ? ["## Storyboard", "## Image Prompts"] : ["## 分镜表", "## 图像提示词"],
       ),
     });
     return extractProductionDocument(response.content, input.title);
@@ -157,7 +158,7 @@ export class InteractiveFilmCreationAgent extends LongFormProductionAgent {
   async writeInteractiveFilm(input: InteractiveFilmCreationInput): Promise<string> {
     const language = input.language ?? "zh";
     const messages = [
-      { role: "system", content: buildInteractiveFilmCreationSystemPrompt(language) },
+      { role: "system", content: withVietnameseOutputContract(buildInteractiveFilmCreationSystemPrompt(language), language) },
       { role: "user", content: buildInteractiveFilmCreationUserPrompt(input, language) },
     ] as const;
     const response = await completeLongForm({
@@ -171,7 +172,7 @@ export class InteractiveFilmCreationAgent extends LongFormProductionAgent {
       recoverAfterContinuation: (fragments) => this.recoverProductionMarkdown(
         fragments,
         language,
-        language === "en"
+        language !== "zh"
           ? ["## Story Tree", "## Variables and Flags", "## Ending Paths", "## Interactive Script", "## Storyboard and Image Prompts"]
           : ["## 剧情树", "## 变量与旗标表", "## 多结局路径", "## 互动剧本", "## 分镜与图像提示词"],
       ),
@@ -427,8 +428,8 @@ export function normalizeScriptEpisodeEndLabels(script: string): string {
   }).join("\n");
 }
 
-function buildScriptCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function buildScriptCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     return [
       "You are a script-creation tool, not a novel-continuation engine.",
       "This is a non-interactive production call after user confirmation. Execute the confirmed creation spec and source material now.",
@@ -446,8 +447,8 @@ function buildScriptCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
   ].join("\n");
 }
 
-function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     return [
       "## Creation Spec",
       renderScriptSpec(input),
@@ -484,8 +485,8 @@ function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh
   ].join("\n");
 }
 
-function buildStoryboardCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function buildStoryboardCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     return [
       "You are a storyboard-creation tool. Execute the confirmed visual spec and source material; unconfirmed choices remain adjustable.",
       "Output Markdown. No model self-narration or process explanation.",
@@ -497,9 +498,9 @@ function buildStoryboardCreationSystemPrompt(language: "zh" | "en" = "zh"): stri
   ].join("\n");
 }
 
-function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, language: "zh" | "en" = "zh"): string {
+function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
   const maxShots = input.maxShots ?? 24;
-  if (language === "en") {
+  if (language !== "zh") {
     return [
       "## Storyboard Spec",
       renderStoryboardSpec(input),
@@ -550,8 +551,8 @@ function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, langu
   ].join("\n");
 }
 
-function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     return [
       "You are an interactive-film creation tool. Execute the confirmed spec and source material; unconfirmed choices remain adjustable.",
       "Output must be Markdown with the specified sections. No model self-narration, process notes, or \"Here is\" preamble.",
@@ -565,8 +566,8 @@ function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" = "zh"):
   ].join("\n");
 }
 
-function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationInput, language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     return [
       "## Interactive Film Spec",
       renderInteractiveFilmSpec(input),
@@ -621,8 +622,8 @@ function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationIn
   ].join("\n");
 }
 
-function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh" | "en" = "zh"): string {
-  if (language === "en") {
+function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh" | "en" | "vi" = "zh"): string {
+  if (language !== "zh") {
     switch (value) {
       case "vertical_short_drama":
         return "vertical short drama";
@@ -652,9 +653,9 @@ function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh
   }
 }
 
-function summarizeSourceForSpec(sourceText: string | undefined, language: "zh" | "en" = "zh"): string {
+function summarizeSourceForSpec(sourceText: string | undefined, language: "zh" | "en" | "vi" = "zh"): string {
   const text = sourceText?.replace(/\s+/g, " ").trim();
-  if (language === "en") {
+  if (language !== "zh") {
     if (!text) return "No full source material provided.";
     return `Full source material provided, about ${text.length} characters; the full content will be read during generation.`;
   }

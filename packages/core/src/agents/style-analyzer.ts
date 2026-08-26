@@ -23,6 +23,12 @@ const EN_RHETORICAL_PATTERNS: ReadonlyArray<{ readonly name: string; readonly re
   { name: "short punchy rhythm", regex: /[.!?]\s+[A-Z][^.!?]{1,24}[.!?]/g },
 ];
 
+const VI_RHETORICAL_PATTERNS: ReadonlyArray<{ readonly name: string; readonly regex: RegExp }> = [
+  { name: "so sánh", regex: /\b(?:như|tựa như|tựa hồ|giống như|hệt như)\b/giu },
+  { name: "câu hỏi tu từ", regex: /\b(?:làm sao|sao có thể|chẳng lẽ|há chẳng)\b[^.!?]*[?？]/giu },
+  { name: "nhịp câu ngắn", regex: /[.!?]\s+[\p{Lu}Đ][^.!?]{1,28}[.!?]/gu },
+];
+
 /**
  * Analyze a reference text and extract its style profile.
  * The returned profile can be serialized to style_profile.json.
@@ -30,9 +36,9 @@ const EN_RHETORICAL_PATTERNS: ReadonlyArray<{ readonly name: string; readonly re
 export function analyzeStyle(
   text: string,
   sourceName?: string,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): StyleProfile {
-  const isEn = language === "en";
+  const isEn = language !== "zh";
 
   const sentences = text
     .split(isEn ? /[.!?\n]+/ : /[。！？\n]/)
@@ -46,7 +52,7 @@ export function analyzeStyle(
 
   // Measure length in the language's native unit: words for English, characters for Chinese.
   const measure = (s: string): number =>
-    isEn ? (s.match(/[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?/g)?.length ?? 0) : s.replace(/\s+/g, "").length;
+    isEn ? (s.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)?/gu)?.length ?? 0) : s.replace(/\s+/g, "").length;
 
   // Sentence length stats
   const sentenceLengths = sentences.map(measure);
@@ -71,7 +77,7 @@ export function analyzeStyle(
   // Vocabulary diversity (TTR — Type-Token Ratio): word-level for English, character-level for Chinese.
   let vocabularyDiversity: number;
   if (isEn) {
-    const words = text.toLowerCase().match(/[a-z0-9]+(?:'[a-z0-9]+)?/g) ?? [];
+    const words = text.toLocaleLowerCase(language === "vi" ? "vi" : "en").match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)?/gu) ?? [];
     vocabularyDiversity = words.length > 0 ? new Set(words).size / words.length : 0;
   } else {
     const chars = text.replace(/[\s\n\r，。！？、：；""''（）【】《》\d]/g, "");
@@ -82,7 +88,7 @@ export function analyzeStyle(
   const openingCounts: Record<string, number> = {};
   for (const s of sentences) {
     const key = isEn
-      ? (s.match(/[A-Za-z']+/)?.[0]?.toLowerCase() ?? "")
+      ? (s.match(/[\p{L}'’]+/u)?.[0]?.toLocaleLowerCase(language === "vi" ? "vi" : "en") ?? "")
       : (s.length >= 2 ? s.slice(0, 2) : "");
     if (key) openingCounts[key] = (openingCounts[key] ?? 0) + 1;
   }
@@ -93,7 +99,7 @@ export function analyzeStyle(
     .map(([pattern, count]) => (isEn ? `${pattern}… (${count})` : `${pattern}...(${count}次)`));
 
   // Rhetorical features
-  const rhetoricalPatterns = isEn ? EN_RHETORICAL_PATTERNS : RHETORICAL_PATTERNS;
+  const rhetoricalPatterns = language === "vi" ? VI_RHETORICAL_PATTERNS : isEn ? EN_RHETORICAL_PATTERNS : RHETORICAL_PATTERNS;
   const rhetoricalFeatures: string[] = [];
   for (const { name, regex } of rhetoricalPatterns) {
     const matches = text.match(regex);

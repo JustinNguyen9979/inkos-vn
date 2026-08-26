@@ -1,6 +1,7 @@
 import type { SessionKind } from "../interaction/session.js";
 import type { ActionSource, RequestedIntent } from "../interaction/action-envelope.js";
 import type { SkillResolutionResult } from "../skills/index.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export interface AgentSystemPromptOptions {
   readonly actionSource?: ActionSource;
@@ -612,7 +613,7 @@ export function buildAgentSystemPrompt(
 ): string {
   const isZh = language === "zh";
   const withSkills = (prompt: string) => appendSkillGuidance(
-    prompt,
+    withVietnameseOutputContract(prompt, language),
     isZh,
     options.skills,
     options.allowIntentSkillSelection === true,

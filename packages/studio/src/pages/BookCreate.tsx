@@ -34,7 +34,7 @@ export interface BookCreatePayload {
   readonly title: string;
   readonly genre: string;
   readonly platform: string;
-  readonly language: "zh" | "en";
+  readonly language: "zh" | "en" | "vi";
   readonly targetChapters: number;
   readonly chapterWordCount: number;
   readonly blurb: string;
@@ -130,7 +130,12 @@ const PLATFORMS_EN: ReadonlyArray<PlatformOption> = [
   { value: "other", label: "Other" },
 ];
 
-const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
+const PLATFORMS_VI: ReadonlyArray<PlatformOption> = [
+  { value: "other", label: "Nền tảng khác" },
+  { value: "wattpad", label: "Wattpad" },
+];
+
+const PAGE_COPY: Record<"zh" | "en" | "vi", PlatformCopy> = {
   zh: {
     idleTitle: "从一句模糊想法开始",
     idleBody: "先填清楚书名、题材和故事核心，系统会生成基础设定并进入新书工作台。",
@@ -203,6 +208,42 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
     helperTitle: "Recommended flow",
     helperBody: "Lock the world and protagonist first, then settle the conflict, blurb, and volume-one direction. In TUI, use /draft to inspect the same draft.",
   },
+  vi: {
+    idleTitle: "Bắt đầu từ một ý tưởng sơ khởi",
+    idleBody: "Điền tên truyện, thể loại và cốt lõi câu chuyện. InkOS sẽ tạo nền tảng và mở không gian sáng tác mới.",
+    formHeading: "Thông tin cơ bản",
+    formHint: "Các trường này đi thẳng vào quy trình tạo truyện. Mô tả càng cụ thể, nền tảng được tạo càng ổn định.",
+    titleLabel: "Tên truyện",
+    titlePlaceholder: "Ví dụ: Sổ nợ cảng đêm",
+    genreLabel: "Thể loại",
+    genrePlaceholder: "Ví dụ: trinh thám đô thị, kỳ ảo, khoa học viễn tưởng, tình cảm",
+    platformLabel: "Nền tảng mục tiêu",
+    targetChaptersLabel: "Số chương dự kiến",
+    chapterWordCountLabel: "Số từ mỗi chương",
+    briefLabel: "Tóm tắt / tiền đề cốt lõi",
+    briefPlaceholder: "Nêu rõ thế giới, nhân vật chính, mục tiêu, xung đột cốt lõi và hướng phát triển giai đoạn đầu.",
+    createBook: "Tạo truyện",
+    creatingBook: "Đang tạo…",
+    creationStatus: "Đang tạo truyện. Không gian sáng tác sẽ tự mở khi hoàn tất.",
+    creationSteps: ["Lưu cấu hình", "Tạo nền tảng truyện", "Chuẩn bị không gian sáng tác"],
+    assistantHeading: "Muốn AI hỗ trợ hoàn thiện ý tưởng trước?",
+    assistantHint: "Khu vực bản nháp này không bắt buộc. Khi thấy phù hợp, bạn có thể áp dụng bản nháp vào biểu mẫu.",
+    applyDraft: "Áp dụng bản nháp",
+    promptLabel: "Tiếp tục hoàn thiện truyện",
+    promptPlaceholder: "Ví dụ: Tôi muốn viết trinh thám thương trường miền cảng về một tay môi giới muốn hoàn lương.",
+    promptPlaceholderFollowup: "Ví dụ: chuyển bối cảnh sang thành phố cảng tương lai gần; nữ chính xuất hiện muộn; tập một tập trung lần theo sổ sách.",
+    submit: "Cập nhật bản nháp",
+    submitting: "Đang xử lý…",
+    create: "Tạo truyện từ bản nháp",
+    creating: "Đang tạo…",
+    discard: "Bỏ bản nháp",
+    draftHeading: "Bản nháp nền tảng hiện tại",
+    missingHeading: "Thông tin còn thiếu",
+    missingHint: "Không cần điền mọi trường ngay, nhưng đừng tạo truyện khi nền tảng vẫn còn quá mơ hồ.",
+    syncedHint: "Bản nháp này được dùng chung với TUI và Studio Chat.",
+    helperTitle: "Trình tự đề xuất",
+    helperBody: "Chốt thế giới và nhân vật chính trước, sau đó xác định xung đột, phần giới thiệu và hướng của tập đầu.",
+  },
 };
 
 export function pickValidValue(current: string, available: ReadonlyArray<string>): string {
@@ -212,11 +253,11 @@ export function pickValidValue(current: string, available: ReadonlyArray<string>
   return available[0] ?? "";
 }
 
-export function defaultChapterWordsForLanguage(language: "zh" | "en"): string {
-  return language === "en" ? "2000" : "3000";
+export function defaultChapterWordsForLanguage(language: "zh" | "en" | "vi"): string {
+  return language === "zh" ? "3000" : "2000";
 }
 
-export function defaultBookCreateForm(language: "zh" | "en"): BookCreateFormState {
+export function defaultBookCreateForm(language: "zh" | "en" | "vi"): BookCreateFormState {
   return {
     title: "",
     genre: "",
@@ -227,8 +268,8 @@ export function defaultBookCreateForm(language: "zh" | "en"): BookCreateFormStat
   };
 }
 
-export function platformOptionsForLanguage(language: "zh" | "en"): ReadonlyArray<PlatformOption> {
-  return language === "en" ? PLATFORMS_EN : PLATFORMS_ZH;
+export function platformOptionsForLanguage(language: "zh" | "en" | "vi"): ReadonlyArray<PlatformOption> {
+  return language === "zh" ? PLATFORMS_ZH : language === "vi" ? PLATFORMS_VI : PLATFORMS_EN;
 }
 
 function parsePositiveInteger(value: string): number | null {
@@ -248,12 +289,12 @@ export function isBookCreateFormReady(form: BookCreateFormState): boolean {
 
 export function buildBookCreatePayload(
   form: BookCreateFormState,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): BookCreatePayload {
   const targetChapters = parsePositiveInteger(form.targetChapters);
   const chapterWordCount = parsePositiveInteger(form.chapterWordCount);
   if (!targetChapters || !chapterWordCount || !isBookCreateFormReady(form)) {
-    throw new Error(language === "zh" ? "请先补齐建书表单。" : "Complete the book creation form first.");
+    throw new Error(language === "zh" ? "请先补齐建书表单。" : language === "vi" ? "Vui lòng điền đầy đủ biểu mẫu tạo truyện." : "Complete the book creation form first.");
   }
   return {
     title: form.title.trim(),
@@ -292,7 +333,7 @@ export function canCreateFromDraft(draft?: BookCreationDraft): boolean {
   );
 }
 
-const DRAFT_STAGE_LABELS: Record<"zh" | "en", Record<string, string>> = {
+const DRAFT_STAGE_LABELS: Record<"zh" | "en" | "vi", Record<string, string>> = {
   zh: {
     basic: "基础信息",
     world: "世界观与规则",
@@ -339,6 +380,29 @@ const DRAFT_STAGE_LABELS: Record<"zh" | "en", Record<string, string>> = {
     currentFocus: "Current Focus",
     constraints: "Constraints",
   },
+  vi: {
+    basic: "Thông tin cơ bản",
+    world: "Thế giới và quy tắc",
+    characters: "Nhân vật chính và dàn nhân vật",
+    conflict: "Xung đột và hồi đáp",
+    structure: "Cấu trúc và ràng buộc",
+    title: "Tên truyện",
+    genre: "Thể loại",
+    platform: "Nền tảng",
+    language: "Ngôn ngữ",
+    targetChapters: "Số chương dự kiến",
+    chapterWordCount: "Số từ mỗi chương",
+    worldPremise: "Thế giới",
+    settingNotes: "Ghi chú bối cảnh",
+    protagonist: "Nhân vật chính",
+    supportingCast: "Nhân vật phụ",
+    conflictCore: "Xung đột cốt lõi",
+    blurb: "Giới thiệu",
+    authorIntent: "Chủ đích tác giả",
+    volumeOutline: "Hướng phát triển tập",
+    currentFocus: "Trọng tâm hiện tại",
+    constraints: "Ràng buộc sáng tác",
+  },
 };
 
 const DRAFT_STAGE_FIELDS: ReadonlyArray<{
@@ -365,7 +429,7 @@ function draftValueAsText(value: unknown): string | null {
 
 export function buildCreationDraftStages(
   draft: BookCreationDraft,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): ReadonlyArray<DraftSummaryStage> {
   const labels = DRAFT_STAGE_LABELS[language];
   const missingSet = new Set(draft.missingFields ?? []);
@@ -399,17 +463,17 @@ export function buildCreationDraftStages(
 
 export function buildCreationDraftSummary(
   draft: BookCreationDraft,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): ReadonlyArray<DraftSummaryRow> {
-  const rows = language === "en"
+  const rows = language !== "zh"
     ? [
-        draft.title ? { key: "title", label: "Title", value: draft.title } : undefined,
-        draft.worldPremise ? { key: "worldPremise", label: "World", value: draft.worldPremise } : undefined,
-        draft.protagonist ? { key: "protagonist", label: "Protagonist", value: draft.protagonist } : undefined,
-        draft.conflictCore ? { key: "conflictCore", label: "Core Conflict", value: draft.conflictCore } : undefined,
-        draft.volumeOutline ? { key: "volumeOutline", label: "Volume Direction", value: draft.volumeOutline } : undefined,
-        draft.blurb ? { key: "blurb", label: "Blurb", value: draft.blurb } : undefined,
-        draft.nextQuestion ? { key: "nextQuestion", label: "Next", value: draft.nextQuestion } : undefined,
+        draft.title ? { key: "title", label: language === "vi" ? "Tên truyện" : "Title", value: draft.title } : undefined,
+        draft.worldPremise ? { key: "worldPremise", label: language === "vi" ? "Thế giới" : "World", value: draft.worldPremise } : undefined,
+        draft.protagonist ? { key: "protagonist", label: language === "vi" ? "Nhân vật chính" : "Protagonist", value: draft.protagonist } : undefined,
+        draft.conflictCore ? { key: "conflictCore", label: language === "vi" ? "Xung đột cốt lõi" : "Core Conflict", value: draft.conflictCore } : undefined,
+        draft.volumeOutline ? { key: "volumeOutline", label: language === "vi" ? "Hướng phát triển tập" : "Volume Direction", value: draft.volumeOutline } : undefined,
+        draft.blurb ? { key: "blurb", label: language === "vi" ? "Giới thiệu" : "Blurb", value: draft.blurb } : undefined,
+        draft.nextQuestion ? { key: "nextQuestion", label: language === "vi" ? "Tiếp theo" : "Next", value: draft.nextQuestion } : undefined,
       ]
     : [
         draft.title ? { key: "title", label: "书名", value: draft.title } : undefined,
@@ -579,7 +643,7 @@ export async function waitForBookReady(
 export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
   const c = useColors(theme);
   const { data: project } = useApi<{ language: string }>("/project");
-  const projectLang = (project?.language ?? "zh") as "zh" | "en";
+  const projectLang = (project?.language ?? "zh") as "zh" | "en" | "vi";
   const copy = PAGE_COPY[projectLang];
   const platformChoices = platformOptionsForLanguage(projectLang);
 

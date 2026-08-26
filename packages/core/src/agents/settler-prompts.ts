@@ -1,15 +1,16 @@
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { BookRules } from "../models/book-rules.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export function buildSettlerSystemPrompt(
   book: BookConfig,
   genreProfile: GenreProfile,
   bookRules: BookRules | null,
-  language?: "zh" | "en",
+  language?: "zh" | "en" | "vi",
 ): string {
   const resolvedLang = language ?? genreProfile.language;
-  const isEnglish = resolvedLang === "en";
+  const isEnglish = resolvedLang !== "zh";
   const numericalBlock = genreProfile.numericalSystem
     ? `\n- 本题材有数值/资源体系，你必须在 UPDATED_LEDGER 中追踪正文中出现的所有资源变动
 - 数值验算铁律：期初 + 增量 = 期末，三项必须可验算`
@@ -34,10 +35,12 @@ export function buildSettlerSystemPrompt(
     : "";
 
   const langPrefix = isEnglish
-    ? `【LANGUAGE OVERRIDE】ALL output (state card, hooks, summaries, subplots, emotional arcs, character matrix) MUST be in English. The === TAG === markers remain unchanged.\n\n`
+    ? resolvedLang === "vi"
+      ? `【LANGUAGE OVERRIDE】ALL natural-language values in the state card, hooks, summaries, subplots, emotional arcs, and character matrix MUST be in Vietnamese. The === TAG === markers and JSON keys remain unchanged.\n\n`
+      : `【LANGUAGE OVERRIDE】ALL output (state card, hooks, summaries, subplots, emotional arcs, character matrix) MUST be in English. The === TAG === markers remain unchanged.\n\n`
     : "";
 
-  return `${langPrefix}你是状态追踪分析师。给定新章节正文和当前 truth 文件，你的任务是产出更新后的 truth 文件。
+  return withVietnameseOutputContract(`${langPrefix}你是状态追踪分析师。给定新章节正文和当前 truth 文件，你的任务是产出更新后的 truth 文件。
 
 ## 工作模式
 
@@ -84,7 +87,7 @@ ${buildSettlerOutputFormat(genreProfile)}
 - 不要从卷纲或大纲中补充正文尚未到达的剧情到状态卡
 - 不要删除或修改已有 hooks 中与本章无关的内容——只更新本章正文涉及的 hooks
 - 第 1 章尤其注意：初始追踪文件可能包含从大纲预生成的内容，只保留正文实际支持的部分，不要保留正文未涉及的预设
-- **伏笔例外**：正文中出现的未解疑问、悬念、伏笔线索必须在 hooks 中记录。这不是"推断"，而是"提取正文中的叙事承诺"。如果正文暗示了一个谜题/冲突/秘密但没有解答，那就是一个 hook，必须记录`;
+- **伏笔例外**：正文中出现的未解疑问、悬念、伏笔线索必须在 hooks 中记录。这不是"推断"，而是"提取正文中的叙事承诺"。如果正文暗示了一个谜题/冲突/秘密但没有解答，那就是一个 hook，必须记录`, resolvedLang);
 }
 
 function buildSettlerOutputFormat(gp: GenreProfile): string {

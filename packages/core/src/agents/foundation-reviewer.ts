@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.js";
 import type { ArchitectOutput } from "./architect.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export interface FoundationReviewResult {
   readonly passed: boolean;
@@ -32,7 +33,7 @@ export class FoundationReviewerAgent extends BaseAgent {
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
     readonly styleGuide?: string;
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly targetChapters?: number;
   }): Promise<FoundationReviewResult> {
     const canonBlock = params.sourceCanon
@@ -46,27 +47,27 @@ export class FoundationReviewerAgent extends BaseAgent {
       ? this.originalDimensions(params.language, params.targetChapters)
       : this.derivativeDimensions(params.language, params.mode);
 
-    const systemPrompt = params.language === "en"
+    const systemPrompt = params.language !== "zh"
       ? this.buildEnglishReviewPrompt(dimensions, canonBlock, styleBlock)
       : this.buildChineseReviewPrompt(dimensions, canonBlock, styleBlock);
 
     const userPrompt = this.buildFoundationExcerpt(params.foundation, params.language);
 
     const response = await this.chat([
-      { role: "system", content: systemPrompt },
+      { role: "system", content: withVietnameseOutputContract(systemPrompt, params.language) },
       { role: "user", content: userPrompt },
     ], { temperature: 0.3 });
 
     return this.parseReviewResult(response.content, dimensions);
   }
 
-  private originalDimensions(language: "zh" | "en", targetChapters?: number): ReadonlyArray<string> {
+  private originalDimensions(language: "zh" | "en" | "vi", targetChapters?: number): ReadonlyArray<string> {
     const target = Number.isFinite(targetChapters) && targetChapters && targetChapters > 0
       ? Math.round(targetChapters)
       : 40;
     const openingWindow = Math.min(5, target);
     const repeatWindow = Math.min(10, Math.max(3, target));
-    return language === "en"
+    return language !== "zh"
       ? [
           `Core Conflict (Is there a clear, compelling central conflict that can sustain the requested ${target} chapters?)`,
           `Opening Momentum (Can the first ${openingWindow} chapters create a page-turning hook?)`,
@@ -83,12 +84,12 @@ export class FoundationReviewerAgent extends BaseAgent {
         ];
   }
 
-  private derivativeDimensions(language: "zh" | "en", mode: "fanfic" | "series"): ReadonlyArray<string> {
+  private derivativeDimensions(language: "zh" | "en" | "vi", mode: "fanfic" | "series"): ReadonlyArray<string> {
     const modeLabel = mode === "fanfic"
-      ? (language === "en" ? "Fan Fiction" : "同人")
-      : (language === "en" ? "Series" : "系列");
+      ? (language !== "zh" ? "Fan Fiction" : "同人")
+      : (language !== "zh" ? "Series" : "系列");
 
-    return language === "en"
+    return language !== "zh"
       ? [
           `Source DNA Preservation (Does the ${modeLabel} respect the original's world rules, character personalities, and established facts?)`,
           `New Narrative Space (Is there a clear divergence point or new territory that gives the story room to be ORIGINAL, not a retelling?)`,
@@ -177,7 +178,7 @@ ${canonBlock}${styleBlock}
 Be strict. 80 means "ready to write without changes."`;
   }
 
-  private buildFoundationExcerpt(foundation: ArchitectOutput, language: "zh" | "en"): string {
+  private buildFoundationExcerpt(foundation: ArchitectOutput, language: "zh" | "en" | "vi"): string {
     return language === "en"
       ? `## Story Bible\n${foundation.storyBible}\n\n## Volume Outline\n${foundation.volumeOutline}\n\n## Book Rules\n${foundation.bookRules}\n\n## Initial State\n${foundation.currentState}\n\n## Initial Hooks\n${foundation.pendingHooks}`
       : `## 世界设定\n${foundation.storyBible}\n\n## 卷纲\n${foundation.volumeOutline}\n\n## 规则\n${foundation.bookRules}\n\n## 初始状态\n${foundation.currentState}\n\n## 初始伏笔\n${foundation.pendingHooks}`;

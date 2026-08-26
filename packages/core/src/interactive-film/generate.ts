@@ -5,6 +5,7 @@ import type { ActivatedSkillGuidance } from "../agent/skill-tool.js";
 import { StoryGraphSchema, type StoryGraph } from "./graph-schema.js";
 import { StoryGraphContentToolSchema } from "./tool-schemas.js";
 import { validateStoryGraph } from "./validation.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 const SYSTEM_PROMPT_ZH = `你是互动影游编剧。根据用户的故事前提，生成一个小而完整的可玩分支图。
 要求：恰好 1 个 type=start 节点；至少 2 个 branch 节点；至少 2 个差异化 ending；每条路径都能到达某个 ending；用变量、条件和效果表达真正影响后续的玩家选择。完成后调用 submit_story_graph 提交分支图。`;
@@ -24,23 +25,23 @@ export async function generateStoryGraph(
   input: GenerateStoryGraphInput,
   options?: {
     readonly maxTokens?: number;
-    readonly language?: "zh" | "en";
+    readonly language?: "zh" | "en" | "vi";
     readonly activatedSkills?: ReadonlyArray<ActivatedSkillGuidance>;
     readonly signal?: AbortSignal;
   },
 ): Promise<StoryGraph> {
   const language = options?.language ?? "zh";
-  const systemPrompt = language === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
-  const userPrompt = language === "en"
+  const systemPrompt = language !== "zh" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
+  const userPrompt = language !== "zh"
     ? `Title: ${input.title}\nPremise: ${input.premise}`
     : `标题：${input.title}\n前提：${input.premise}`;
   const submitted = await runWorkerAgentTool(client, model, appendActivatedSkillGuidance([
-    { role: "system", content: systemPrompt },
+    { role: "system", content: withVietnameseOutputContract(systemPrompt, language) },
     { role: "user", content: userPrompt },
   ], options?.activatedSkills), {
     name: "submit_story_graph",
-    label: language === "en" ? "Submit Story Graph" : "提交故事图谱",
-    description: language === "en"
+    label: language !== "zh" ? "Submit Story Graph" : "提交故事图谱",
+    description: language !== "zh"
       ? "Submit the complete playable branching graph. The host owns the project id, schema version, and title."
       : "提交完整可玩的分支图。项目 id、schema 版本和标题由宿主负责。",
     parameters: StoryGraphContentToolSchema,

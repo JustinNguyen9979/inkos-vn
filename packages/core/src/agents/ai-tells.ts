@@ -19,16 +19,18 @@ export interface AITellResult {
   readonly issues: ReadonlyArray<AITellIssue>;
 }
 
-type AITellLanguage = "zh" | "en";
+type AITellLanguage = "zh" | "en" | "vi";
 
 const HEDGE_WORDS: Record<AITellLanguage, ReadonlyArray<string>> = {
   zh: ["似乎", "可能", "或许", "大概", "某种程度上", "一定程度上", "在某种意义上"],
   en: ["seems", "seemed", "perhaps", "maybe", "apparently", "in some ways", "to some extent"],
+  vi: ["dường như", "có lẽ", "có thể", "hình như", "ở một mức độ nào đó", "theo một cách nào đó"],
 };
 
 const TRANSITION_WORDS: Record<AITellLanguage, ReadonlyArray<string>> = {
   zh: ["然而", "不过", "与此同时", "另一方面", "尽管如此", "话虽如此", "但值得注意的是"],
   en: ["however", "meanwhile", "on the other hand", "nevertheless", "even so", "still"],
+  vi: ["tuy nhiên", "trong khi đó", "mặt khác", "dẫu vậy", "mặc dù thế", "đáng chú ý là"],
 };
 
 /**

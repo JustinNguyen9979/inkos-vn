@@ -1,5 +1,6 @@
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 /**
  * Observer phase: extract ALL facts from the chapter.
@@ -9,15 +10,18 @@ import type { GenreProfile } from "../models/genre-profile.js";
 export function buildObserverSystemPrompt(
   book: BookConfig,
   genreProfile: GenreProfile,
-  language?: "zh" | "en",
+  language?: "zh" | "en" | "vi",
 ): string {
-  const isEnglish = (language ?? genreProfile.language) === "en";
+  const resolvedLanguage = language ?? genreProfile.language;
+  const isEnglish = resolvedLanguage !== "zh";
 
   const langPrefix = isEnglish
-    ? "【LANGUAGE OVERRIDE】ALL output MUST be in English.\n\n"
+    ? resolvedLanguage === "vi"
+      ? "【LANGUAGE OVERRIDE】ALL natural-language output MUST be in Vietnamese. Preserve exact section markers.\n\n"
+      : "【LANGUAGE OVERRIDE】ALL output MUST be in English.\n\n"
     : "";
 
-  return `${langPrefix}${isEnglish ? "You are" : "你是"}${isEnglish ? " a fact extraction specialist" : "一个事实提取专家"}。${isEnglish ? "Read the chapter text and extract EVERY observable fact change." : "阅读章节正文，提取每一个可观察到的事实变化。"}
+  return withVietnameseOutputContract(`${langPrefix}${isEnglish ? "You are" : "你是"}${isEnglish ? " a fact extraction specialist" : "一个事实提取专家"}。${isEnglish ? "Read the chapter text and extract EVERY observable fact change." : "阅读章节正文，提取每一个可观察到的事实变化。"}
 
 ${isEnglish ? "## Extraction Categories" : "## 提取类别"}
 
@@ -111,16 +115,16 @@ ${isEnglish ? `[CHARACTERS]
 - <时间标记、时长>
 
 [身体状态]
-- <角色>: <受伤/恢复/疲劳/战力变化>`}`;
+- <角色>: <受伤/恢复/疲劳/战力变化>`}`, resolvedLanguage);
 }
 
 export function buildObserverUserPrompt(
   chapterNumber: number,
   title: string,
   content: string,
-  language?: "zh" | "en",
+  language?: "zh" | "en" | "vi",
 ): string {
-  const isEnglish = language === "en";
+  const isEnglish = language !== "zh";
   return isEnglish
     ? `Extract all facts from Chapter ${chapterNumber} "${title}":\n\n${content}`
     : `请提取第${chapterNumber}章「${title}」中的所有事实：\n\n${content}`;

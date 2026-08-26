@@ -1,4 +1,5 @@
 import { BaseAgent } from "./base.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 export interface ValidationWarning {
   readonly category: string;
@@ -37,7 +38,7 @@ export class StateValidatorAgent extends BaseAgent {
     newState: string,
     oldHooks: string,
     newHooks: string,
-    language: "zh" | "en" = "zh",
+    language: "zh" | "en" | "vi" = "zh",
     authorityContext?: StateValidationAuthorityContext,
   ): Promise<ValidationResult> {
     const stateDiff = this.computeDiff(oldState, newState, "State Card");
@@ -48,9 +49,11 @@ export class StateValidatorAgent extends BaseAgent {
       return { warnings: [], passed: true, repairRequired: false };
     }
 
-    const langInstruction = language === "en"
-      ? "Respond in English."
-      : "用中文回答。";
+    const langInstruction = language === "vi"
+      ? "Write warning descriptions in Vietnamese while preserving the exact PASS, REPAIR, or FAIL verdict token."
+      : language === "en"
+        ? "Respond in English."
+        : "用中文回答。";
 
     const systemPrompt = `You are a continuity validator for a novel writing system. ${langInstruction}
 
@@ -110,7 +113,7 @@ ${chapterContent}`;
     try {
       const response = await this.chat(
         [
-          { role: "system", content: systemPrompt },
+        { role: "system", content: withVietnameseOutputContract(systemPrompt, language) },
           { role: "user", content: userPrompt },
         ],
         { temperature: 0.1 },

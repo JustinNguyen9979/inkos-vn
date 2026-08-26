@@ -173,7 +173,7 @@ async function produceShort(
     SHORT_FICTION_MAX_CHAPTERS,
   );
   // charsPerChapter is the language's native unit: zh chars (900-1200) or en words (600-800).
-  const charsPerChapter = language === "en"
+  const charsPerChapter = language !== "zh"
     ? boundedInteger(
         options.charsPerChapter,
         SHORT_FICTION_EN_DEFAULT_WORDS_PER_CHAPTER,
@@ -247,7 +247,7 @@ async function produceShort(
       outlineRevisionWarning = error instanceof Error ? error.message : String(error);
       outlineMarkdown = outlineV1.rawContent;
       await writeText(root, join(baseDir, "outline", "v002.md"), outlineMarkdown);
-      await writeText(root, join(baseDir, "reviews", "outline-v002-warning.md"), language === "en"
+      await writeText(root, join(baseDir, "reviews", "outline-v002-warning.md"), language !== "zh"
         ? [
             "# Outline revision not adopted",
             "",
@@ -334,7 +334,7 @@ async function produceShort(
       finalDraft = draftV2;
     } catch (error) {
       revisionWarning = error instanceof Error ? error.message : String(error);
-      await writeText(root, join(baseDir, "reviews", "draft-v002-warning.md"), language === "en"
+      await writeText(root, join(baseDir, "reviews", "draft-v002-warning.md"), language !== "zh"
         ? [
             "# Second revision not adopted",
             "",
@@ -591,7 +591,7 @@ async function writePackageArtifacts(
   language: ShortFictionLanguage = "zh",
 ): Promise<void> {
   const finalDir = join(baseDir, "final");
-  const headings = language === "en"
+  const headings = language !== "zh"
     ? { intro: "## Synopsis", sellingPoints: "## Selling Points", coverPrompt: "## Cover Prompt" }
     : { intro: "## 简介", sellingPoints: "## 卖点", coverPrompt: "## 封面提示词" };
   const packageMarkdown = [
@@ -1043,7 +1043,7 @@ function buildCoverImagePrompt(
   mode: CoverPromptMode,
   language: ShortFictionLanguage = "zh",
 ): string {
-  if (language === "en") {
+  if (language !== "zh") {
     const base = [
       `Title: ${salesPackage.title}`,
       salesPackage.intro ? `Synopsis: ${salesPackage.intro}` : "",

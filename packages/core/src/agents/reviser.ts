@@ -1,4 +1,5 @@
 import { BaseAgent } from "./base.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { BookRules } from "../models/book-rules.js";
 import type { LengthSpec } from "../models/length-governance.js";
@@ -165,8 +166,8 @@ export class ReviserAgent extends BaseAgent {
       ? styleGuideRaw
       : (legacyRulesBody || "(无文风指南)");
 
-    const isEnglish = (bookLanguage ?? gp.language) === "en";
-    const resolvedLanguage = isEnglish ? "en" : "zh";
+    const resolvedLanguage = bookLanguage ?? gp.language;
+    const isEnglish = resolvedLanguage !== "zh";
 
     const issueList = mode === "auto"
       ? buildTieredIssueList(issues, isEnglish)
@@ -281,7 +282,7 @@ ${chapterContent}`;
 
     const response = await this.chat(
       [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: withVietnameseOutputContract(systemPrompt, resolvedLanguage) },
         { role: "user", content: userPrompt },
       ],
       { temperature: 0.3 },
@@ -388,13 +389,13 @@ ${chapterContent}`;
     protagonistBlock: string;
     numericalRule: string;
     lengthGuardrail: string;
-    resolvedLanguage: "zh" | "en";
+    resolvedLanguage: "zh" | "en" | "vi";
     lengthSpec?: LengthSpec;
     autoOutputMode: AutoOutputMode;
   }): string {
     const { langPrefix, gp, protagonistBlock, numericalRule, resolvedLanguage, lengthSpec, autoOutputMode } = params;
     // lengthGuardrail intentionally not used in auto mode — length constraint is embedded in REVISED_CONTENT description
-    const en = resolvedLanguage === "en";
+    const en = resolvedLanguage !== "zh";
     const rewriteLengthConstraint = lengthSpec
       ? (en
           ? `\n  HARD CONSTRAINT: The revised chapter must stay within ${lengthSpec.softMin}-${lengthSpec.softMax} characters (target: ${lengthSpec.target}, ±25%). This is non-negotiable — do not exceed this range.`
@@ -506,7 +507,7 @@ REPLACEMENT_TEXT:
     numericalRule: string;
     lengthGuardrail: string;
     mode: ReviseMode;
-    resolvedLanguage: "zh" | "en";
+    resolvedLanguage: "zh" | "en" | "vi";
   }): string {
     const { langPrefix, gp, protagonistBlock, numericalRule, lengthGuardrail, mode } = params;
     const modeDesc = MODE_DESCRIPTIONS[mode];

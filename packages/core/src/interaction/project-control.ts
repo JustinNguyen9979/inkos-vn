@@ -70,7 +70,7 @@ export async function processProjectInteractionRequest(params: {
 
 function attachRequestLanguage(
   request: InteractionRequest,
-  language: "zh" | "en" | undefined,
+  language: "zh" | "en" | "vi" | undefined,
 ): InteractionRequest {
   if (request.language || !language) {
     return request;
@@ -82,11 +82,11 @@ function attachRequestLanguage(
   };
 }
 
-async function detectProjectInteractionLanguage(projectRoot: string): Promise<"zh" | "en" | undefined> {
+async function detectProjectInteractionLanguage(projectRoot: string): Promise<"zh" | "en" | "vi" | undefined> {
   try {
     const raw = await readFile(join(projectRoot, "inkos.json"), "utf-8");
     const parsed = JSON.parse(raw) as { language?: string };
-    return parsed.language === "en" ? "en" : parsed.language === "zh" ? "zh" : undefined;
+    return parsed.language === "vi" ? "vi" : parsed.language === "en" ? "en" : parsed.language === "zh" ? "zh" : undefined;
   } catch {
     return undefined;
   }

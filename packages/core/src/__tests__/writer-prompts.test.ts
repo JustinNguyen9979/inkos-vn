@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import { LengthSpecSchema } from "../models/length-governance.js";
+import { buildLengthSpec } from "../utils/length-metrics.js";
 import { buildWriterSystemPrompt, buildGoldenOpeningDiscipline } from "../agents/writer-prompts.js";
 import { BookRulesSchema } from "../models/book-rules.js";
 
@@ -169,6 +170,29 @@ describe("buildWriterSystemPrompt", () => {
       expect(prompt).toContain("Golden Opening Discipline");
       expect(prompt).toContain(`Chapter ${ch}`);
     }
+  });
+
+  it("uses the Latin-script structure and enforces Vietnamese prose for vi books", () => {
+    const prompt = buildWriterSystemPrompt(
+      { ...BOOK, language: "vi", title: "Truyện Việt" },
+      { ...GENRE, language: "vi", name: "Tổng hợp" },
+      null,
+      "# Quy tắc",
+      "# Thể loại",
+      "# Phong cách\n\nGiọng kể tự nhiên, gần gũi.",
+      undefined,
+      1,
+      "creative",
+      undefined,
+      "vi",
+      "governed",
+      buildLengthSpec(2000, "vi"),
+    );
+
+    expect(prompt).toContain("Golden Opening Discipline");
+    expect(prompt).toContain("Vietnamese language and prose contract (mandatory)");
+    expect(prompt).toContain("Giọng kể tự nhiên, gần gũi.");
+    expect(prompt).toContain("Target length: 2000 words");
   });
 
   it("omits golden opening discipline for ch>=4 in both languages", () => {

@@ -51,6 +51,21 @@ describe("buildStudioBookConfig", () => {
     expect(config.language).toBe("en");
     expect(config.id).toBe("english-book");
   });
+
+  it("preserves Vietnamese as the book's writing language", () => {
+    const config = buildStudioBookConfig(
+      {
+        title: "Mùa mưa qua phố",
+        genre: "other",
+        platform: "other",
+        language: "vi",
+      },
+      "2026-03-30T00:00:00.000Z",
+    );
+
+    expect(config.language).toBe("vi");
+    expect(config.chapterWordCount).toBe(2000);
+  });
 });
 
 describe("waitForStudioBookReady", () => {
