@@ -92,6 +92,10 @@ jobs:
         if: steps.integrate.outputs.changed != 'false'
         run: pnpm install --frozen-lockfile
 
+      - name: Install npm with trusted publishing support
+        if: steps.integrate.outputs.changed != 'false'
+        run: npm install --global npm@11.5.1
+
       - name: Update Vietnamese catalog
         if: steps.integrate.outputs.changed != 'false'
         env:
