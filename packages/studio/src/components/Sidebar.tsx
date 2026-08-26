@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "../hooks/use-api";
 import type { SSEMessage } from "../hooks/use-sse";
 import { applyBookCollectionEvent, shouldRefetchBookCollections, shouldRefetchDaemonStatus } from "../hooks/use-book-activity";
@@ -50,6 +50,35 @@ import {
   Languages,
 } from "lucide-react";
 import { InkosLogo } from "./InkosLogo";
+
+const SIDEBAR_WIDTH_STORAGE_KEY = "inkos:studio:left-sidebar-width";
+const SIDEBAR_DEFAULT_WIDTH = 320;
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MAX_WIDTH = 560;
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)));
+}
+
+function initialSidebarWidth(): number {
+  if (typeof window === "undefined") return SIDEBAR_DEFAULT_WIDTH;
+  try {
+    const stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+    return Number.isFinite(stored) && stored > 0
+      ? clampSidebarWidth(stored)
+      : SIDEBAR_DEFAULT_WIDTH;
+  } catch {
+    return SIDEBAR_DEFAULT_WIDTH;
+  }
+}
+
+function persistSidebarWidth(width: number): void {
+  try {
+    window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(clampSidebarWidth(width)));
+  } catch {
+    // Resizing still works when storage is unavailable.
+  }
+}
 
 // 历史记录里的会话混装多种类型（chat / short / play / book-create），用图标区分。
 function SessionKindIcon({ kind, className }: { readonly kind?: string; readonly className?: string }) {
@@ -117,6 +146,48 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const [projectChatExpanded, setProjectChatExpanded] = useState(true);
   const [myBooksExpanded, setMyBooksExpanded] = useState(true);
   const [filmsExpanded, setFilmsExpanded] = useState(true);
+  const [width, setWidth] = useState(initialSidebarWidth);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
+  const updateWidth = useCallback((nextWidth: number) => {
+    const clamped = clampSidebarWidth(nextWidth);
+    setWidth(clamped);
+    persistSidebarWidth(clamped);
+  }, []);
+
+  const handleResizePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragCleanupRef.current?.();
+
+    const startX = event.clientX;
+    const startWidth = width;
+    let latestWidth = width;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      latestWidth = clampSidebarWidth(startWidth + moveEvent.clientX - startX);
+      setWidth(latestWidth);
+    };
+    const cleanup = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", cleanup);
+      document.removeEventListener("pointercancel", cleanup);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      persistSidebarWidth(latestWidth);
+      dragCleanupRef.current = null;
+    };
+
+    dragCleanupRef.current = cleanup;
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", cleanup);
+    document.addEventListener("pointercancel", cleanup);
+  }, [width]);
 
   const books = data?.books ?? [];
   const films = filmsData?.films ?? [];
@@ -284,7 +355,35 @@ export function Sidebar({ nav, activePage, sse, t }: {
   };
 
   return (
-    <aside className="w-[260px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
+    <aside
+      className="relative shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none"
+      style={{ width }}
+    >
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={tr("调整侧边栏宽度", "Resize sidebar")}
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuenow={width}
+        tabIndex={0}
+        title={tr("拖动调整宽度，双击恢复默认", "Drag to resize; double-click to reset")}
+        onPointerDown={handleResizePointerDown}
+        onDoubleClick={() => updateWidth(SIDEBAR_DEFAULT_WIDTH)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            updateWidth(width - 16);
+          } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            updateWidth(width + 16);
+          } else if (event.key === "Home") {
+            event.preventDefault();
+            updateWidth(SIDEBAR_DEFAULT_WIDTH);
+          }
+        }}
+        className="absolute right-0 top-0 z-30 h-full w-2 cursor-col-resize touch-none hover:bg-primary/20 active:bg-primary/30 focus-visible:bg-primary/20 focus-visible:outline-none transition-colors"
+      />
       {/* Logo Area */}
       <div className="px-6 py-8">
         <button

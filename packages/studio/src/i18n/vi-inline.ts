@@ -6,6 +6,8 @@
  * future merges small and predictable.
  */
 const VI_INLINE: Readonly<Record<string, string>> = {
+  "Resize sidebar": "Điều chỉnh độ rộng thanh bên",
+  "Drag to resize; double-click to reset": "Kéo để đổi độ rộng; nhấp đúp để đặt lại",
   "Loading...": "Đang tải...",
   "Saving...": "Đang lưu...",
   "Save": "Lưu",
