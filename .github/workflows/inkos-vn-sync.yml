@@ -191,6 +191,21 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.release_version }}"
+          for name in inkos-vn-core inkos-vn-studio inkos-vn; do
+            for attempt in $(seq 1 18); do
+              PUBLISHED_VERSION=$(npm view "$name@$VERSION" version 2>/dev/null || true)
+              if [ "$PUBLISHED_VERSION" = "$VERSION" ]; then
+                echo "$name@$VERSION is available from the npm registry"
+                break
+              fi
+              if [ "$attempt" -eq 18 ]; then
+                echo "$name@$VERSION did not become available within 3 minutes" >&2
+                exit 1
+              fi
+              echo "Waiting for npm registry propagation ($name, attempt $attempt/18)"
+              sleep 10
+            done
+          done
           TEST_DIR=$(mktemp -d)
           cd "$TEST_DIR"
           npm init -y
