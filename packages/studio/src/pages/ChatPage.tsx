@@ -3,6 +3,7 @@ import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
 import { fetchJson, postApi, useApi } from "../hooks/use-api";
+import { tr } from "../lib/app-language";
 import type { ChatAttachmentPayload } from "../store/chat/types";
 import { chatSelectors, useChatStore } from "../store/chat";
 import type { ChatSessionKind } from "../store/chat";
@@ -67,6 +68,7 @@ import {
   toggleSelectedSkillIds,
   type StudioSkill,
 } from "./skill-ui-state";
+import { localizeAgentSourceForVietnamese, localizeSkillForVietnamese } from "./vi-agent-content";
 
 // -- Types --
 
@@ -176,7 +178,7 @@ function cancelScrollFrame(id: ScrollFrameId): void {
 }
 
 function SkillPickerPanel({
-  isZh,
+  isVi,
   skills,
   diagnostics,
   selectedSkillIds,
@@ -187,7 +189,7 @@ function SkillPickerPanel({
   onToggleSkill,
   onImport,
 }: {
-  readonly isZh: boolean;
+  readonly isVi: boolean;
   readonly skills: ReadonlyArray<StudioSkill>;
   readonly diagnostics?: ReadonlyArray<{ readonly path?: string; readonly message?: string }>;
   readonly selectedSkillIds: ReadonlyArray<string>;
@@ -206,11 +208,12 @@ function SkillPickerPanel({
       <div className="border-b border-border/40 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-bold">{isZh ? "选择 Agent Skill" : "Select Agent Skills"}</div>
+            <div className="text-sm font-bold">{tr("选择 Agent Skill", "Select Agent Skills")}</div>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {isZh
-                ? "Agent 会按当前意图自主调用；点选 Skill 可强制它随下一条消息启用。"
-                : "The agent can choose a skill from your intent; selecting one forces it for the next message."}
+              {tr(
+                "Agent 会按当前意图自主调用；点选 Skill 可强制它随下一条消息启用。",
+                "The agent can choose a skill from your intent; selecting one forces it for the next message.",
+              )}
             </p>
           </div>
           <div className="flex shrink-0 items-center">
@@ -221,7 +224,7 @@ function SkillPickerPanel({
               className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
             >
               <FolderUp size={13} />
-              {isZh ? "导入" : "Import"}
+              {tr("导入", "Import")}
             </button>
             <input
               ref={folderInputRef}
@@ -241,20 +244,20 @@ function SkillPickerPanel({
         {createError ? <div className="mb-3 rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{createError}</div> : null}
         {diagnostics?.length ? (
           <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-            <div className="font-semibold">{isZh ? "部分外部 Skill 未加载" : "Some external skills were not loaded"}</div>
+            <div className="font-semibold">{tr("部分外部 Skill 未加载", "Some external skills were not loaded")}</div>
             {diagnostics.slice(0, 4).map((item, index) => (
               <div key={`${item.path ?? "skill"}-${index}`} className="mt-1 break-all">
-                {item.path ? `${item.path}: ` : ""}{item.message ?? (isZh ? "格式无效" : "Invalid format")}
+                {item.path ? `${item.path}: ` : ""}{item.message ?? tr("格式无效", "Invalid format")}
               </div>
             ))}
           </div>
         ) : null}
         {loading ? (
-          <div className="px-2 py-6 text-center text-sm text-muted-foreground">{isZh ? "加载 Skill..." : "Loading skills..."}</div>
+          <div className="px-2 py-6 text-center text-sm text-muted-foreground">{tr("加载 Skill...", "Loading skills...")}</div>
         ) : error ? (
           <div className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
         ) : skills.length === 0 ? (
-          <div className="px-2 py-6 text-center text-sm text-muted-foreground">{isZh ? "还没有可用 Skill。" : "No skills available yet."}</div>
+          <div className="px-2 py-6 text-center text-sm text-muted-foreground">{tr("还没有可用 Skill。", "No skills available yet.")}</div>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             {skills.map((skill) => {
@@ -274,7 +277,7 @@ function SkillPickerPanel({
                       <div className="flex items-center gap-2">
                         <div className="truncate text-sm font-semibold">{skill.name}</div>
                         <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {skill.source ?? "skill"}
+                          {isVi ? localizeAgentSourceForVietnamese(skill.source ?? "skill") : skill.source ?? "skill"}
                         </span>
                       </div>
                       <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/70">@{skill.id}</div>
@@ -325,6 +328,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const autoScrollPinnedRef = useRef(true);
 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
+  const isVi = t("nav.connected") === "Đã kết nối";
   const hasBook = Boolean(activeBookId);
   const currentSessionKind: ChatSessionKind = activeSession?.sessionKind
     ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
@@ -363,7 +367,10 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const { data: skillsData, loading: skillsLoading, error: skillsError, refetch: refetchSkills } = useApi<SkillsResponse>("/skills");
   const worldPanelInsetClass = currentSessionKind === "play" && worldPanelOpen ? "lg:pr-[380px]" : "";
-  const availableSkills = skillsData?.skills ?? [];
+  const availableSkills = useMemo(
+    () => (skillsData?.skills ?? []).map((skill) => isVi ? localizeSkillForVietnamese(skill) : skill),
+    [isVi, skillsData],
+  );
   const selectedSkills = useMemo(
     () => selectedSkillIds
       .map((id) => availableSkills.find((skill) => skill.id === id))
@@ -989,7 +996,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
             <div className="relative flex-1 rounded-xl bg-secondary/30 transition-all">
               {skillPanelOpen ? (
                 <SkillPickerPanel
-                  isZh={isZh}
+                  isVi={isVi}
                   skills={availableSkills}
                   diagnostics={skillsData?.diagnostics}
                   selectedSkillIds={selectedSkillIds}
