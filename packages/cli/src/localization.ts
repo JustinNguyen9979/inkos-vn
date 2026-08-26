@@ -1,6 +1,7 @@
 import { formatLengthCount, resolveLengthCountingMode } from "@actalk/inkos-core";
+import { translateCliEnglish } from "./i18n/vi.js";
 
-export type CliLanguage = "zh" | "en";
+export type CliLanguage = "zh" | "en" | "vi";
 
 type WriteIssue = {
   readonly severity: string;
@@ -27,7 +28,12 @@ type ImportResultShape = {
 };
 
 function localize(language: CliLanguage, messages: { zh: string; en: string }): string {
+  if (language === "vi") return translateCliEnglish(messages.en);
   return language === "en" ? messages.en : messages.zh;
+}
+
+function resolveCliLengthMode(language: CliLanguage): "zh_chars" | "en_words" {
+  return resolveLengthCountingMode(language === "en" || language === "vi" ? "en" : "zh");
 }
 
 function normalizeCliLanguageTag(value: string | undefined): CliLanguage | undefined {
@@ -41,6 +47,9 @@ function normalizeCliLanguageTag(value: string | undefined): CliLanguage | undef
   }
   if (normalized.startsWith("zh")) {
     return "zh";
+  }
+  if (normalized.startsWith("vi")) {
+    return "vi";
   }
   return undefined;
 }
@@ -120,7 +129,7 @@ export function formatWriteNextResultLines(
   result: WriteResultShape,
 ): string[] {
   const auditPassed = result.auditPassed ?? result.passedAudit ?? false;
-  const lengthLabel = formatLengthCount(result.wordCount, resolveLengthCountingMode(language));
+  const lengthLabel = formatLengthCount(result.wordCount, resolveCliLengthMode(language));
   const lines = [
     localize(language, {
       zh: `  第${result.chapterNumber}章：${result.title}`,
@@ -234,7 +243,7 @@ export function formatNotifyBatchWriteBody(
       en: `${chapters.length} chapter(s) written (chapter ${first.chapterNumber} to ${last.chapterNumber})`,
     }),
     ...chapters.map((ch) => {
-      const lengthLabel = formatLengthCount(ch.wordCount, resolveLengthCountingMode(language));
+      const lengthLabel = formatLengthCount(ch.wordCount, resolveCliLengthMode(language));
       return localize(language, {
         zh: `第${ch.chapterNumber}章 ${ch.title} | ${lengthLabel} | ${ch.auditPassed ? "审计通过" : "需复核"}`,
         en: `Chapter ${ch.chapterNumber} ${ch.title} | ${lengthLabel} | ${ch.auditPassed ? "audit passed" : "needs review"}`,
@@ -276,7 +285,7 @@ export function formatNotifyReviseBody(
       en: `Chapter ${result.chapterNumber} kept original draft${result.skippedReason ? `: ${result.skippedReason}` : ""}`,
     });
   }
-  const lengthLabel = formatLengthCount(result.wordCount, resolveLengthCountingMode(language));
+  const lengthLabel = formatLengthCount(result.wordCount, resolveCliLengthMode(language));
   return localize(language, {
     zh: `第${result.chapterNumber}章已修订 | ${lengthLabel} | 修复 ${result.fixedCount} 个问题`,
     en: `Chapter ${result.chapterNumber} revised | ${lengthLabel} | ${result.fixedCount} issue(s) fixed`,
@@ -316,7 +325,7 @@ export function formatImportChaptersComplete(
   language: CliLanguage,
   result: ImportResultShape,
 ): string[] {
-  const lengthLabel = formatLengthCount(result.totalWords, resolveLengthCountingMode(language));
+  const lengthLabel = formatLengthCount(result.totalWords, resolveCliLengthMode(language));
   return [
     localize(language, {
       zh: "导入完成：",

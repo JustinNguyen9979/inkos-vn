@@ -31,13 +31,13 @@ function tarForceLocalArgs(): string[] {
   }
 }
 
-async function packPackage(packageDir: string, packDir: string) {
+async function packPackage(packageDir: string, packDir: string, env: NodeJS.ProcessEnv = process.env) {
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const cacheDir = join(packDir, ".npm-cache");
   await mkdir(cacheDir, { recursive: true });
   execFileSync(npmCmd, ["pack", "--pack-destination", packDir, "--cache", cacheDir], {
     cwd: packageDir,
-    env: process.env,
+    env,
     encoding: "utf-8",
     shell: process.platform === "win32",
   });
@@ -50,8 +50,8 @@ async function packPackage(packageDir: string, packDir: string) {
   return join(packDir, tgzFiles[0]);
 }
 
-async function extractPackedPackageJson(packageDir: string, packDir: string) {
-  const tarballPath = await packPackage(packageDir, packDir);
+async function extractPackedPackageJson(packageDir: string, packDir: string, env: NodeJS.ProcessEnv = process.env) {
+  const tarballPath = await packPackage(packageDir, packDir, env);
   const tarArgs = [...tarForceLocalArgs(), "-xOf"];
   return execFileSync("tar", [...tarArgs, tarballPath, "package/package.json"], {
     cwd: workspaceRoot,
@@ -253,6 +253,37 @@ describe.sequential("publish packaging", () => {
       expect(packedPackageJson.dependencies["@actalk/inkos-studio"]).toBe(studioPackageJson.version);
     } finally {
       await rm(packDir, { recursive: true, force: true });
+    }
+  });
+
+  it("stages fork packages with safe names and internal aliases", async () => {
+    const stageDir = await mkdtemp(join(tmpdir(), "inkos-vn-stage-"));
+
+    try {
+      execFileSync("node", [resolve(workspaceRoot, "scripts/stage-inkos-vn-packages.mjs"), "--out", stageDir], {
+        cwd: workspaceRoot,
+        env: process.env,
+        encoding: "utf-8",
+      });
+      const packedPackageJson = JSON.parse(await readFile(join(stageDir, "cli", "package.json"), "utf-8"));
+      const corePackageJson = JSON.parse(await readFile(join(stageDir, "core", "package.json"), "utf-8"));
+      const studioPackageJson = JSON.parse(await readFile(join(stageDir, "studio", "package.json"), "utf-8"));
+
+      expect(packedPackageJson.name).toBe("inkos-vn");
+      expect(corePackageJson.name).toBe("inkos-vn-core");
+      expect(studioPackageJson.name).toBe("inkos-vn-studio");
+      expect(packedPackageJson.bin).toEqual({ inkos: "dist/index.js" });
+      expect(packedPackageJson.repository.url).toBe("https://github.com/JustinNguyen9979/inkos-vn.git");
+      expect(packedPackageJson.dependencies["@actalk/inkos-core"])
+        .toBe(`npm:inkos-vn-core@${packedPackageJson.version}`);
+      expect(packedPackageJson.dependencies["@actalk/inkos-studio"])
+        .toBe(`npm:inkos-vn-studio@${packedPackageJson.version}`);
+      expect(studioPackageJson.dependencies["@actalk/inkos-core"])
+        .toBe(`npm:inkos-vn-core@${studioPackageJson.version}`);
+      expect(packedPackageJson.scripts).toBeUndefined();
+      expect(packedPackageJson.devDependencies).toBeUndefined();
+    } finally {
+      await rm(stageDir, { recursive: true, force: true });
     }
   });
 

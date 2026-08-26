@@ -30,7 +30,8 @@ import { useSessionEvents } from "./hooks/use-session-events";
 import { useTheme } from "./hooks/use-theme";
 import { useI18n } from "./hooks/use-i18n";
 import { setAppLanguage, tr } from "./lib/app-language";
-import { postApi, putApi, useApi } from "./hooks/use-api";
+import { setUiLocale } from "./i18n/ui-locale";
+import { postApi, useApi } from "./hooks/use-api";
 import { Sun, Moon } from "lucide-react";
 import { House } from "lucide-react";
 
@@ -197,22 +198,25 @@ export function App() {
           <div className="flex items-center gap-3">
             <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
               <button
-                onClick={async () => {
-                  await putApi("/project", { language: "zh" });
-                  refetchProject();
-                }}
+                onClick={() => setUiLocale("zh")}
                 className={`px-2.5 py-1 text-[16px] font-medium rounded-md ${currentLang === "zh" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                title="中文界面"
               >
                 中
               </button>
               <button
-                onClick={async () => {
-                  await putApi("/project", { language: "en" });
-                  refetchProject();
-                }}
+                onClick={() => setUiLocale("en")}
                 className={`px-2.5 py-1 text-[16px] font-medium rounded-md ${currentLang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                title="English interface"
               >
                 EN
+              </button>
+              <button
+                onClick={() => setUiLocale("vi")}
+                className={`px-2.5 py-1 text-[16px] font-medium rounded-md ${currentLang === "vi" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                title="Giao diện tiếng Việt"
+              >
+                VI
               </button>
             </div>
 

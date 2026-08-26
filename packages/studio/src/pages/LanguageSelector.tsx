@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { setUiLocale, useUiLocale, type UiLocale } from "../i18n/ui-locale";
 
 export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") => void }) {
+  const uiLocale = useUiLocale();
   const [hovering, setHovering] = useState<"zh" | "en" | null>(null);
   const [selected, setSelected] = useState<"zh" | "en" | null>(null);
 
@@ -12,6 +14,18 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-8">
+      <div className="absolute right-6 top-6 flex gap-1 rounded-lg bg-muted/50 p-1">
+        {(["zh", "en", "vi"] as const).map((locale: UiLocale) => (
+          <button
+            key={locale}
+            type="button"
+            onClick={() => setUiLocale(locale)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${uiLocale === locale ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+          >
+            {locale === "zh" ? "中" : locale.toUpperCase()}
+          </button>
+        ))}
+      </div>
       {/* Logo — cinematic scale */}
       <div className="mb-16 text-center">
         <div className="flex items-baseline justify-center gap-1.5 mb-4">
@@ -67,7 +81,11 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
       </div>
 
       <div className="text-sm text-muted-foreground">
-        可在设置中更改 · Can be changed in Settings
+        {uiLocale === "vi"
+          ? "Chọn ngôn ngữ dùng để sáng tác. Bạn có thể thay đổi sau trong phần cài đặt."
+          : uiLocale === "en"
+            ? "Choose the language used for writing. You can change it later in Settings."
+            : "选择创作语言，可稍后在设置中更改。"}
       </div>
     </div>
   );

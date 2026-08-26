@@ -1,6 +1,5 @@
-import { useApi } from "./use-api";
-
-type Lang = "zh" | "en";
+import { VI_STRINGS } from "../i18n/vi";
+import { useUiLocale } from "../i18n/ui-locale";
 
 const strings = {
   // Header
@@ -389,14 +388,24 @@ const strings = {
   "logs.showingRecent": { zh: "当前展示最近日志记录。", en: "Showing recent log entries." },
 } as const;
 
+export const STUDIO_SOURCE_STRINGS = strings;
+
 export type StringKey = keyof typeof strings;
 export type TFunction = (key: StringKey) => string;
 
+// Compile-time parity: an upstream key addition fails the fork build until the
+// standalone Vietnamese overlay is updated.
+const viStrings: Record<StringKey, string> = VI_STRINGS;
+const _noExtraVietnameseKeys: Record<Exclude<keyof typeof VI_STRINGS, StringKey>, never> = {};
+void _noExtraVietnameseKeys;
+
 export function useI18n() {
-  const { data } = useApi<{ language: string }>("/project");
-  const lang: Lang = data?.language === "en" ? "en" : "zh";
+  const lang = useUiLocale();
 
   function t(key: StringKey): string {
+    if (lang === "vi") {
+      return viStrings[key];
+    }
     return strings[key][lang];
   }
 

@@ -1,4 +1,5 @@
 node_modules/
+.inkos-vn-release/
 dist/
 .env
 .env.local

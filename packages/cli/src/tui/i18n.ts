@@ -1,6 +1,7 @@
 import type { ChatDepth } from "./chat-depth.js";
+import { VI_TUI_COPY } from "./vi.js";
 
-export type TuiLocale = "zh-CN" | "en";
+export type TuiLocale = "zh-CN" | "en" | "vi";
 
 export interface TuiCopy {
   readonly locale: TuiLocale;
@@ -220,6 +221,7 @@ export function resolveTuiLocale(
 }
 
 export function getTuiCopy(locale: TuiLocale): TuiCopy {
+  if (locale === "vi") return VI_TUI_COPY;
   return locale === "en" ? EN : ZH_CN;
 }
 
@@ -278,6 +280,10 @@ function normalizeLocale(value: string | undefined): TuiLocale | undefined {
 
   if (normalized.startsWith("en")) {
     return "en";
+  }
+
+  if (normalized.startsWith("vi")) {
+    return "vi";
   }
 
   return undefined;

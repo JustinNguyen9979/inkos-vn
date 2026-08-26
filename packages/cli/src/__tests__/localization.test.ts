@@ -158,6 +158,8 @@ describe("resolveCliLanguage environment fallback", () => {
   it("reads INKOS_LOCALE before the system locale variables", () => {
     expect(resolveCliLanguage(undefined, { INKOS_LOCALE: "en", LANG: "zh_CN.UTF-8" })).toBe("en");
     expect(resolveCliLanguage(undefined, { INKOS_LOCALE: "zh-CN", LC_ALL: "en_US.UTF-8" })).toBe("zh");
+    expect(resolveCliLanguage(undefined, { INKOS_LOCALE: "vi-VN", LANG: "en_US.UTF-8" })).toBe("vi");
+    expect(resolveCliLanguage(undefined, { LANG: "vi_VN.UTF-8" })).toBe("vi");
   });
 
   it("falls back to LC_ALL, then LC_MESSAGES, then LANG", () => {
@@ -175,6 +177,16 @@ describe("resolveCliLanguage environment fallback", () => {
     expect(resolveCliLanguage(undefined, {})).toBe("zh");
     expect(resolveCliLanguage(undefined, { LANG: "C" })).toBe("zh");
     expect(resolveCliLanguage("fr", {})).toBe("zh");
+  });
+
+  it("formats core CLI feedback in Vietnamese", () => {
+    expect(formatBookCreateCreating("vi", "Bến Cảng", "other", "other"))
+      .toBe('Đang tạo sách "Bến Cảng" (other / other)...');
+    expect(formatBookCreateCreated("vi", "ben-cang")).toBe("Đã tạo sách: ben-cang");
+    expect(formatWriteNextComplete("vi")).toBe("Hoàn tất.");
+    expect(formatImportChaptersDiscovery("vi", 3, "ben-cang"))
+      .toBe('Tìm thấy 3 chương để nhập vào "ben-cang".');
+    expect(formatDoctorHintBaseUrl("vi")).toContain("INKOS_LLM_BASE_URL");
   });
 });
 

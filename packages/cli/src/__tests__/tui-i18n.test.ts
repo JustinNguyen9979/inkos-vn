@@ -7,6 +7,8 @@ describe("tui i18n", () => {
     expect(resolveTuiLocale({ INKOS_TUI_LOCALE: "en" })).toBe("en");
     expect(resolveTuiLocale({ LANG: "en_US.UTF-8" })).toBe("en");
     expect(resolveTuiLocale({}, "en")).toBe("en");
+    expect(resolveTuiLocale({ INKOS_TUI_LOCALE: "vi-VN" })).toBe("vi");
+    expect(resolveTuiLocale({ LANG: "vi_VN.UTF-8" })).toBe("vi");
   });
 
   it("normalizes common activity labels for Chinese chrome", () => {
@@ -18,5 +20,14 @@ describe("tui i18n", () => {
     expect(normalizeStageLabel("completed", copy)).toBe("已完成");
     expect(formatModeLabel("semi", copy)).toBe("半自动");
     expect(formatModeLabel("auto", copy)).toBe("自动");
+  });
+
+  it("provides a standalone Vietnamese copy overlay", () => {
+    const copy = getTuiCopy("vi");
+    expect(copy.labels.project).toBe("Dự án");
+    expect(copy.composer.placeholder).toContain("InkOS");
+    expect(normalizeStageLabel("writing chapter", copy)).toBe("đang viết");
+    expect(normalizeStageLabel("waiting_human", copy)).toBe("đang chờ quyết định của bạn");
+    expect(formatModeLabel("semi", copy)).toBe("bán tự động");
   });
 });

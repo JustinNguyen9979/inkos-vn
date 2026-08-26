@@ -1,0 +1,73 @@
+import type { TuiCopy } from "./i18n.js";
+
+/** Vietnamese TUI overlay kept separate from the upstream zh/en dictionaries. */
+export const VI_TUI_COPY: TuiCopy = {
+  locale: "vi",
+  labels: {
+    project: "Dự án",
+    book: "Sách",
+    depth: "Độ sâu",
+    session: "Phiên",
+    messageCount: (count) => `${count} tin nhắn`,
+    stage: "Giai đoạn",
+    mode: "Chế độ",
+    model: "Mô hình",
+    error: "Lỗi",
+    recent: "Gần đây",
+    pending: "Đang chờ",
+    draft: "Bản nháp",
+    ready: "Sẵn sàng",
+    none: "không có",
+    notConfigured: "chưa cấu hình",
+    unknown: "không xác định",
+  },
+  modeLabels: {
+    auto: "tự động",
+    semi: "bán tự động",
+    manual: "thủ công",
+  },
+  composer: {
+    placeholder: "Yêu cầu InkOS viết, chỉnh sửa hoặc giải thích…",
+    emptyConversation: "Hãy cho InkOS biết bạn muốn làm gì.",
+    helper: "Enter để gửi • /new • /short • /play • /cover • /write • /confirm • /model • /depth • /help",
+    submitting: "Đang xử lý…",
+    failed: "Yêu cầu trước đã thất bại",
+    ready: "Sẵn sàng",
+  },
+  notes: {
+    help: "Lệnh: /new (tạo sách), /short, /play, /cover, /write, /confirm, /cancel, /model [mô hình], /status, /clear, /depth, /quit. Dùng ngôn ngữ tự nhiên cho các yêu cầu khác.",
+    status: (stage, mode) => `Trạng thái hiện tại: ${stage} (${mode}).`,
+    config: "TUI chưa hỗ trợ /config tương tác. Hãy dùng inkos config set-global.",
+    depthSet: (depthLabel) => `Đã chuyển độ sâu suy luận sang ${depthLabel}.`,
+    modelCurrent: (modelLabel) => `Mô hình hiện tại: ${modelLabel}.`,
+    modelSet: (model) => `Đã chuyển mô hình của phiên TUI sang ${model}.`,
+    newBookGuide: "Bắt đầu xây dựng sách mới. Hãy mô tả ý tưởng, thể loại, thế giới, nhân vật chính hoặc xung đột. AI sẽ hướng dẫn và tạo sách khi có đủ thông tin.",
+    noLlmConfig: "Không tìm thấy cấu hình LLM.",
+    setupProvider: "Hãy cấu hình nhà cung cấp API trước.",
+  },
+  roles: {
+    user: "Bạn",
+    assistant: "InkOS",
+    system: "Hệ thống",
+  },
+  activity: {
+    thinking: "đang suy nghĩ",
+    checking: "đang kiểm tra",
+    writing: "đang viết",
+    reviewing: "đang rà soát",
+    updating: "đang cập nhật",
+  },
+  stageLabels: {
+    completed: "đã hoàn tất",
+    failed: "thất bại",
+    blocked: "bị chặn",
+    waitingHuman: "đang chờ quyết định của bạn",
+    pausedByUser: "đã được người dùng tạm dừng",
+    readyToContinue: "sẵn sàng tiếp tục",
+  },
+  depthLabels: {
+    light: "nhẹ",
+    normal: "tiêu chuẩn",
+    deep: "chuyên sâu",
+  },
+};

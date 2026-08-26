@@ -1,0 +1,229 @@
+name: InkOS VN - Sync, Translate and Release
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Optional version to retry publishing (for example 1.8.0-vn.1)"
+        required: false
+        type: string
+
+concurrency:
+  group: inkos-vn-upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  id-token: write
+
+env:
+  UPSTREAM_URL: https://github.com/Narcooo/inkos.git
+  UPSTREAM_BRANCH: master
+  MIRROR_BRANCH: master
+  LOCALIZED_BRANCH: inkos-vn
+
+jobs:
+  sync-translate-release:
+    if: github.repository == 'JustinNguyen9979/inkos-vn'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: inkos-vn
+          fetch-depth: 0
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "inkos-vn-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch and validate upstream
+        id: upstream
+        run: |
+          set -euo pipefail
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$UPSTREAM_BRANCH" --tags
+          git fetch origin "$MIRROR_BRANCH" "$LOCALIZED_BRANCH" --tags
+          MIRROR_SHA=$(git rev-parse "origin/$MIRROR_BRANCH")
+          UPSTREAM_SHA=$(git rev-parse "upstream/$UPSTREAM_BRANCH")
+          echo "upstream_sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
+          if ! git merge-base --is-ancestor "$MIRROR_SHA" "$UPSTREAM_SHA"; then
+            echo "Mirror branch diverged from upstream; refusing to force-push." >&2
+            exit 1
+          fi
+          if [ "$MIRROR_SHA" != "$UPSTREAM_SHA" ]; then
+            git push origin "$UPSTREAM_SHA:refs/heads/$MIRROR_BRANCH"
+          fi
+
+      - name: Merge upstream into localized branch
+        id: integrate
+        run: |
+          set -euo pipefail
+          BASE_SHA=$(git rev-parse HEAD)
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+            if [ -z "${{ inputs.release_version }}" ]; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=retry" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          git merge --no-ff --no-edit "upstream/$UPSTREAM_BRANCH"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.integrate.outputs.changed != 'false'
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        if: steps.integrate.outputs.changed != 'false'
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        if: steps.integrate.outputs.changed != 'false'
+        run: pnpm install --frozen-lockfile
+
+      - name: Update Vietnamese catalog
+        if: steps.integrate.outputs.changed != 'false'
+        env:
+          INKOS_VN_TRANSLATION_API_KEY: ${{ secrets.INKOS_VN_TRANSLATION_API_KEY }}
+          INKOS_VN_TRANSLATION_BASE_URL: ${{ vars.INKOS_VN_TRANSLATION_BASE_URL }}
+          INKOS_VN_TRANSLATION_MODEL: ${{ vars.INKOS_VN_TRANSLATION_MODEL }}
+        run: pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts
+
+      - name: Validate Vietnamese catalog
+        if: steps.integrate.outputs.changed != 'false'
+        run: pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts --check
+
+      - name: Build, typecheck and test
+        if: steps.integrate.outputs.changed != 'false'
+        run: |
+          pnpm build
+          pnpm typecheck
+          pnpm test
+
+      - name: Decide whether npm artifacts changed
+        if: steps.integrate.outputs.changed != 'false'
+        id: artifacts
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.integrate.outputs.changed }}" = "retry" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "${{ steps.integrate.outputs.base_sha }}" HEAD; git diff --name-only)
+          if echo "$CHANGED" | grep -Eq '^(packages/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.json$)'; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push successful integration
+        if: steps.integrate.outputs.changed != 'false'
+        run: |
+          set -euo pipefail
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(vn): sync upstream ${{ steps.upstream.outputs.upstream_sha }}"
+          fi
+          git push origin "HEAD:refs/heads/$LOCALIZED_BRANCH"
+
+      - name: Derive fork release version
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        id: version
+        run: |
+          set -euo pipefail
+          RETRY_VERSION="${{ inputs.release_version }}"
+          if [ -n "$RETRY_VERSION" ]; then
+            RELEASE_VERSION="$RETRY_VERSION"
+          else
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            LAST_REV=$(git tag -l "inkos-vn-v${BASE_VERSION}-vn.*" | sed -E "s/^inkos-vn-v${BASE_VERSION//./\\.}-vn\.//" | sort -n | tail -1)
+            NEXT_REV=$(( ${LAST_REV:-0} + 1 ))
+            RELEASE_VERSION="${BASE_VERSION}-vn.${NEXT_REV}"
+          fi
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stage and inspect fork packages
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        run: |
+          node scripts/stage-inkos-vn-packages.mjs --out .inkos-vn-release --version "${{ steps.version.outputs.release_version }}"
+          for pkg in core studio cli; do
+            npm pack ".inkos-vn-release/$pkg" --dry-run
+          done
+
+      - name: Tag localized release
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        run: |
+          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git tag -a "$TAG" -m "InkOS VN ${{ steps.version.outputs.release_version }} (upstream ${{ steps.upstream.outputs.upstream_sha }})"
+            git push origin "$TAG"
+          fi
+
+      - name: Publish fork packages
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_VN_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.release_version }}"
+          for pkg in core studio cli; do
+            NAME=$(node -p "require('./.inkos-vn-release/$pkg/package.json').name")
+            if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
+              echo "$NAME@$VERSION already exists; skipping"
+            else
+              npm publish ".inkos-vn-release/$pkg" --access public --tag latest --provenance
+            fi
+          done
+
+      - name: Verify installed CLI
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.release_version }}"
+          TEST_DIR=$(mktemp -d)
+          cd "$TEST_DIR"
+          npm init -y
+          npm install "inkos-vn@$VERSION"
+          npx inkos --version
+          node -e "const p=require('./node_modules/inkos-vn/package.json'); if(!p.dependencies['@actalk/inkos-core'].startsWith('npm:inkos-vn-core@')) process.exit(1)"
+
+      - name: Create GitHub release
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "InkOS VN ${{ steps.version.outputs.release_version }}" \
+              --notes "Automated Vietnamese release based on upstream commit ${{ steps.upstream.outputs.upstream_sha }}."
+          fi
+
+  report-failure:
+    needs: sync-translate-release
+    if: failure() && github.repository == 'JustinNguyen9979/inkos-vn'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="InkOS VN automated sync failed"
+          BODY="The automated sync/translation/release workflow failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
