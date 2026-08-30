@@ -176,8 +176,13 @@ function translateRuntimeEnglish(english: string): string {
     [/^Intent "(.+)" is not implemented in the interaction runtime yet\.$/, "Runtime tương tác chưa hỗ trợ ý định “$1”."],
   ];
   for (const [pattern, replacement] of replacements) {
-    if (pattern.test(english)) return english.replace(pattern, replacement)
-      .replaceAll("; waiting for your next decision", "; đang chờ quyết định tiếp theo của anh");
+    const translated = english.replace(pattern, replacement);
+    if (translated !== english) {
+      return translated.replaceAll(
+        "; waiting for your next decision",
+        "; đang chờ quyết định tiếp theo của anh",
+      );
+    }
   }
   return english;
 }
