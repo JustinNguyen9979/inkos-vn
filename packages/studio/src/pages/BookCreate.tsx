@@ -3,7 +3,7 @@ import type { BookCreationDraft } from "@actalk/inkos-core";
 import { BookPlus, CheckCircle2, RotateCcw, Sparkles } from "lucide-react";
 import { fetchJson, useApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
-import type { TFunction } from "../hooks/use-i18n";
+import { useI18n, type TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import {
   clearBookCreateSessionId,
@@ -24,6 +24,7 @@ interface PlatformOption {
 export interface BookCreateFormState {
   readonly title: string;
   readonly genre: string;
+  readonly language: "zh" | "en" | "vi";
   readonly platform: string;
   readonly targetChapters: string;
   readonly chapterWordCount: string;
@@ -88,6 +89,7 @@ interface PlatformCopy {
   readonly titlePlaceholder: string;
   readonly genreLabel: string;
   readonly genrePlaceholder: string;
+  readonly languageLabel: string;
   readonly platformLabel: string;
   readonly targetChaptersLabel: string;
   readonly chapterWordCountLabel: string;
@@ -145,6 +147,7 @@ const PAGE_COPY: Record<"zh" | "en" | "vi", PlatformCopy> = {
     titlePlaceholder: "例如：夜港账本",
     genreLabel: "题材 / 类型",
     genrePlaceholder: "例如：都市悬疑、玄幻、科幻、女频情感",
+    languageLabel: "创作语言",
     platformLabel: "目标平台",
     targetChaptersLabel: "目标章数",
     chapterWordCountLabel: "每章字数",
@@ -181,6 +184,7 @@ const PAGE_COPY: Record<"zh" | "en" | "vi", PlatformCopy> = {
     titlePlaceholder: "Example: Ledger of the Night Port",
     genreLabel: "Genre",
     genrePlaceholder: "Example: mystery, urban fantasy, sci-fi, romance",
+    languageLabel: "Writing language",
     platformLabel: "Target platform",
     targetChaptersLabel: "Target chapters",
     chapterWordCountLabel: "Words per chapter",
@@ -217,6 +221,7 @@ const PAGE_COPY: Record<"zh" | "en" | "vi", PlatformCopy> = {
     titlePlaceholder: "Ví dụ: Sổ nợ cảng đêm",
     genreLabel: "Thể loại",
     genrePlaceholder: "Ví dụ: trinh thám đô thị, kỳ ảo, khoa học viễn tưởng, tình cảm",
+    languageLabel: "Ngôn ngữ sáng tác",
     platformLabel: "Nền tảng mục tiêu",
     targetChaptersLabel: "Số chương dự kiến",
     chapterWordCountLabel: "Số từ mỗi chương",
@@ -261,6 +266,7 @@ export function defaultBookCreateForm(language: "zh" | "en" | "vi"): BookCreateF
   return {
     title: "",
     genre: "",
+    language,
     platform: platformOptionsForLanguage(language)[0]?.value ?? "other",
     targetChapters: "200",
     chapterWordCount: defaultChapterWordsForLanguage(language),
@@ -300,7 +306,7 @@ export function buildBookCreatePayload(
     title: form.title.trim(),
     genre: form.genre.trim(),
     platform: form.platform,
-    language,
+    language: form.language,
     targetChapters,
     chapterWordCount,
     blurb: form.brief.trim(),
@@ -642,8 +648,7 @@ export async function waitForBookReady(
 
 export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
   const c = useColors(theme);
-  const { data: project } = useApi<{ language: string }>("/project");
-  const projectLang = (project?.language ?? "zh") as "zh" | "en" | "vi";
+  const { lang: projectLang } = useI18n();
   const copy = PAGE_COPY[projectLang];
   const platformChoices = platformOptionsForLanguage(projectLang);
 
@@ -666,6 +671,7 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
   useEffect(() => {
     setForm((current) => ({
       ...current,
+      language: projectLang,
       platform: pickValidValue(
         current.platform,
         platformOptionsForLanguage(projectLang).map((option) => option.value),
@@ -694,6 +700,7 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
     setForm((current) => ({
       title: draft.title?.trim() || current.title,
       genre: draft.genre?.trim() || current.genre,
+      language: draft.language ?? current.language,
       platform: pickValidValue(draft.platform ?? current.platform, platformValues),
       targetChapters: draft.targetChapters ? String(draft.targetChapters) : current.targetChapters,
       chapterWordCount: draft.chapterWordCount ? String(draft.chapterWordCount) : current.chapterWordCount,
@@ -912,7 +919,19 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
             </label>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <label className="space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">{copy.languageLabel}</span>
+              <select
+                value={form.language}
+                onChange={(event) => updateForm({ language: event.target.value as "zh" | "en" | "vi" })}
+                className={`w-full ${c.input} rounded-md px-3 py-2.5 focus:outline-none text-sm bg-background`}
+              >
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+              </select>
+            </label>
             <label className="space-y-2">
               <span className="text-xs font-medium text-muted-foreground">{copy.platformLabel}</span>
               <select

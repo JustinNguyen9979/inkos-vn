@@ -8,6 +8,7 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en" | 
 
   const handleSelect = (lang: "zh" | "en" | "vi") => {
     setSelected(lang);
+    setUiLocale(lang);
     // Brief pause for the selection animation before transitioning
     setTimeout(() => onSelect(lang), 400);
   };

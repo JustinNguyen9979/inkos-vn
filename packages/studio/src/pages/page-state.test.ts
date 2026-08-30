@@ -47,6 +47,7 @@ describe("book create form", () => {
     expect(defaultBookCreateForm("zh")).toEqual({
       title: "",
       genre: "",
+      language: "zh",
       platform: "tomato",
       targetChapters: "200",
       chapterWordCount: "3000",
@@ -72,6 +73,7 @@ describe("book create form", () => {
     expect(buildBookCreatePayload({
       title: " 夜港账本 ",
       genre: " 都市悬疑 ",
+      language: "zh",
       platform: "qidian",
       targetChapters: "120",
       chapterWordCount: "2600",
@@ -85,6 +87,18 @@ describe("book create form", () => {
       chapterWordCount: 2600,
       blurb: "主角查账洗白，旧案回潮。",
     });
+  });
+
+  it("uses the writing language selected in the form instead of the UI error-message locale", () => {
+    const form = {
+      ...defaultBookCreateForm("zh"),
+      title: "Truyền nhân cuối cùng",
+      genre: "001",
+      language: "vi" as const,
+      brief: "Một truyền nhân trẻ tuổi đối mặt với thế giới linh dị hiện đại.",
+    };
+
+    expect(buildBookCreatePayload(form, "zh").language).toBe("vi");
   });
 });
 

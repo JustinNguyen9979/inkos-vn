@@ -250,7 +250,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   };
 
   const openCreateForm = () => {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, language: lang });
     setFormMode("create");
   };
 

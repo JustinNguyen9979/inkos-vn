@@ -4699,9 +4699,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             ? "zh"
             : undefined;
       const requestedLanguage = actionPayload?.shortRun?.language ?? actionPayload?.createBook?.language;
+      const unboundLanguage = actionPayload?.shortRun
+        ? (requestedLanguage ?? inferLanguage(instruction))
+        : (requestedLanguage ?? configLanguage);
       const surfaceLanguage = agentBookId
         ? (bookLanguage ?? configLanguage)
-        : (requestedLanguage ?? inferLanguage(instruction));
+        : unboundLanguage;
       const streamSessionId = loadedBookSession.sessionId;
       const titleBeforeRun = bookSession.title;
       let sessionTitleBroadcasted = false;
