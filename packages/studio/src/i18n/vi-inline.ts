@@ -6,6 +6,15 @@
  * future merges small and predictable.
  */
 const VI_INLINE: Readonly<Record<string, string>> = {
+  "Progress": "Tiến trình",
+  "Create book": "Tạo quyển",
+  "Book setup": "Tạo quyển",
+  "Generate foundation": "Tạo nền tảng truyện",
+  "Save book config": "Lưu cấu hình quyển",
+  "Write foundation files": "Ghi các tệp nền tảng",
+  "Initialize control documents": "Khởi tạo tài liệu điều khiển",
+  "Initialize control docs": "Khởi tạo tài liệu điều khiển",
+  "Create initial snapshot": "Tạo ảnh chụp trạng thái ban đầu",
   "Manage book": "Quản lý quyển",
   "Rename Book": "Đổi tên quyển",
   "Delete entire book": "Xóa toàn bộ quyển",

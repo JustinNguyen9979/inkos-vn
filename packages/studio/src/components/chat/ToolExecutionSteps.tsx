@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { buildApiUrl } from "../../hooks/use-api";
 import { tr } from "../../lib/app-language";
+import { localizeProgressText } from "../../i18n/vi-progress";
 import { chatSelectors, useChatStore } from "../../store/chat";
 import { usePreferencesStore } from "../../store/preferences";
 import {
@@ -988,7 +989,7 @@ function PipelineExecution({
       <CollapsibleTrigger className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-card/80 transition-colors cursor-pointer">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[16px] leading-6 font-medium text-foreground truncate">
-            {exec.label}
+            {localizeProgressText(exec.label)}
             {bookId && <span className="text-muted-foreground font-normal"> · {bookId}</span>}
           </span>
         </div>
@@ -1037,7 +1038,7 @@ function PipelineExecution({
                 >
                   <StageIcon status={stage.status} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate">{stage.label}</div>
+                    <div className="truncate">{localizeProgressText(stage.label)}</div>
                     {stage.progress && (
                       <div className="mt-0.5 text-[10px] text-muted-foreground/70">
                         {formatProgress(stage.progress)}
@@ -1056,7 +1057,7 @@ function PipelineExecution({
                 const isWarn = log.startsWith("[warning]") || /warning|警告/i.test(log);
                 return (
                   <li key={i} className={`text-xs font-mono break-words ${isError ? "text-destructive" : isWarn ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}`}>
-                    {log}
+                    {localizeProgressText(log)}
                   </li>
                 );
               })}

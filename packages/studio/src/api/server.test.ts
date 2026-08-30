@@ -3610,7 +3610,7 @@ describe("createStudioServer daemon lifecycle", () => {
         sessionKind: "book-create",
         actionSource: "button",
         requestedIntent: "create_book",
-        actionPayload: { createBook: { title: "雨夜旧账", language: "zh" } },
+        actionPayload: { createBook: { title: "雨夜旧账", language: "vi" } },
       }),
     });
 
@@ -3619,7 +3619,15 @@ describe("createStudioServer daemon lifecycle", () => {
       expect(task?.execution).toMatchObject({
         tool: "sub_agent",
         agent: "architect",
+        label: "Tạo quyển",
         status: "running",
+        stages: [
+          { label: "Tạo nền tảng truyện", status: "pending" },
+          { label: "Lưu cấu hình quyển", status: "pending" },
+          { label: "Ghi các tệp nền tảng", status: "pending" },
+          { label: "Khởi tạo tài liệu điều khiển", status: "pending" },
+          { label: "Tạo ảnh chụp trạng thái ban đầu", status: "pending" },
+        ],
       });
     });
 

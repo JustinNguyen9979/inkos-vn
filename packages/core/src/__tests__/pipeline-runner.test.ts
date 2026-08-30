@@ -1312,6 +1312,18 @@ describe("PipelineRunner", () => {
         "阶段：初始化控制文档",
         "阶段：创建初始快照",
       ]));
+
+      infos.length = 0;
+      await rm(state.bookDir(bookId), { recursive: true, force: true });
+      await runner.initBook({ ...book, language: "vi" });
+      expect(infos).toEqual(expect.arrayContaining([
+        "Giai đoạn: Đang lưu cấu hình quyển",
+        "Giai đoạn: Đang tạo nền tảng truyện",
+        "Giai đoạn: Đang ghi các tệp nền tảng",
+        "Giai đoạn: Đang khởi tạo tài liệu điều khiển",
+        "Giai đoạn: Đang tạo ảnh chụp trạng thái ban đầu",
+      ]));
+      expect(infos.join("\n")).not.toMatch(/[一-鿿]/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

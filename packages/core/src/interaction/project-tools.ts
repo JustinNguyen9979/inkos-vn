@@ -176,6 +176,9 @@ function mapStageMessageToStatus(message: string): InteractionEvent["status"] | 
     || lower.includes("generating foundation")
     || lower.includes("reviewing foundation")
     || lower.includes("preparing chapter inputs")
+    || lower.includes("đang lập ý định cho chương")
+    || lower.includes("đang tạo nền tảng")
+    || lower.includes("đang chuẩn bị dữ liệu chương")
     || message.includes("规划下一章意图")
     || message.includes("生成基础设定")
     || message.includes("审核基础设定")
@@ -185,18 +188,21 @@ function mapStageMessageToStatus(message: string): InteractionEvent["status"] | 
   }
   if (
     lower.includes("composing chapter runtime context")
+    || lower.includes("đang tổng hợp ngữ cảnh vận hành")
     || message.includes("组装章节运行时上下文")
   ) {
     return "composing";
   }
   if (
     lower.includes("writing chapter draft")
+    || lower.includes("đang viết bản nháp chương")
     || message.includes("撰写章节草稿")
   ) {
     return "writing";
   }
   if (
     lower.includes("auditing draft")
+    || lower.includes("đang kiểm tra bản nháp")
     || message.includes("审计草稿")
   ) {
     return "assessing";
@@ -206,6 +212,8 @@ function mapStageMessageToStatus(message: string): InteractionEvent["status"] | 
     || lower.includes("revising chapter")
     || lower.includes("rewrite")
     || lower.includes("repair")
+    || lower.includes("đang sửa")
+    || lower.includes("đang chỉnh sửa")
     || message.includes("自动修复")
     || message.includes("整章改写")
     || message.includes("修订第")
@@ -219,6 +227,11 @@ function mapStageMessageToStatus(message: string): InteractionEvent["status"] | 
     || lower.includes("rebuilding final truth files")
     || lower.includes("validating truth file updates")
     || lower.includes("syncing memory indexes")
+    || lower.includes("đang lưu")
+    || lower.includes("ảnh chụp trạng thái")
+    || lower.includes("đang tạo lại các tệp sự thật")
+    || lower.includes("đang xác thực thay đổi tệp sự thật")
+    || lower.includes("đang đồng bộ chỉ mục")
     || message.includes("落盘")
     || message.includes("保存")
     || message.includes("快照")
@@ -237,6 +250,9 @@ function extractStageDetail(message: string): string | undefined {
   }
   if (message.startsWith("阶段：")) {
     return message.slice("阶段：".length).trim();
+  }
+  if (message.startsWith("Giai đoạn: ")) {
+    return message.slice("Giai đoạn: ".length).trim();
   }
   return undefined;
 }

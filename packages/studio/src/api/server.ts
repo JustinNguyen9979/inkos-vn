@@ -158,45 +158,46 @@ function normalizeStudioLanguage(value: unknown): StudioLanguage {
   return value === "vi" ? "vi" : value === "en" ? "en" : "zh";
 }
 
-function pick(lang: StudioLanguage, zh: string, en: string): string {
-  return lang === "zh" ? zh : en;
+function pick(lang: StudioLanguage, zh: string, en: string, vi?: string): string {
+  return lang === "zh" ? zh : lang === "vi" ? (vi ?? en) : en;
 }
 
 // -- Pipeline stage definitions per agent type --
 
-interface BilingualLabel {
+interface LocalizedLabel {
   readonly zh: string;
   readonly en: string;
+  readonly vi: string;
 }
 
-const PIPELINE_STAGES: Record<string, ReadonlyArray<BilingualLabel>> = {
+const PIPELINE_STAGES: Record<string, ReadonlyArray<LocalizedLabel>> = {
   writer: [
-    { zh: "准备章节输入", en: "Prepare chapter input" },
-    { zh: "撰写章节草稿", en: "Write chapter draft" },
-    { zh: "落盘最终章节", en: "Save final chapter" },
-    { zh: "生成最终真相文件", en: "Generate final truth files" },
-    { zh: "校验真相文件变更", en: "Validate truth file changes" },
-    { zh: "同步记忆索引", en: "Sync memory index" },
-    { zh: "更新章节索引与快照", en: "Update chapter index and snapshot" },
+    { zh: "准备章节输入", en: "Prepare chapter input", vi: "Chuẩn bị dữ liệu chương" },
+    { zh: "撰写章节草稿", en: "Write chapter draft", vi: "Viết bản nháp chương" },
+    { zh: "落盘最终章节", en: "Save final chapter", vi: "Lưu chương hoàn chỉnh" },
+    { zh: "生成最终真相文件", en: "Generate final truth files", vi: "Tạo các tệp sự thật cuối cùng" },
+    { zh: "校验真相文件变更", en: "Validate truth file changes", vi: "Xác thực thay đổi tệp sự thật" },
+    { zh: "同步记忆索引", en: "Sync memory index", vi: "Đồng bộ chỉ mục bộ nhớ" },
+    { zh: "更新章节索引与快照", en: "Update chapter index and snapshot", vi: "Cập nhật chỉ mục chương và ảnh chụp trạng thái" },
   ],
   architect: [
-    { zh: "生成基础设定", en: "Generate foundation" },
-    { zh: "保存书籍配置", en: "Save book config" },
-    { zh: "写入基础设定文件", en: "Write foundation files" },
-    { zh: "初始化控制文档", en: "Initialize control documents" },
-    { zh: "创建初始快照", en: "Create initial snapshot" },
+    { zh: "生成基础设定", en: "Generate foundation", vi: "Tạo nền tảng truyện" },
+    { zh: "保存书籍配置", en: "Save book config", vi: "Lưu cấu hình quyển" },
+    { zh: "写入基础设定文件", en: "Write foundation files", vi: "Ghi các tệp nền tảng" },
+    { zh: "初始化控制文档", en: "Initialize control documents", vi: "Khởi tạo tài liệu điều khiển" },
+    { zh: "创建初始快照", en: "Create initial snapshot", vi: "Tạo ảnh chụp trạng thái ban đầu" },
   ],
   reviser: [
-    { zh: "加载修订上下文", en: "Load revision context" },
-    { zh: "修订章节", en: "Revise chapter" },
-    { zh: "落盘修订结果", en: "Save revision result" },
-    { zh: "更新索引与快照", en: "Update index and snapshot" },
+    { zh: "加载修订上下文", en: "Load revision context", vi: "Tải ngữ cảnh chỉnh sửa" },
+    { zh: "修订章节", en: "Revise chapter", vi: "Chỉnh sửa chương" },
+    { zh: "落盘修订结果", en: "Save revision result", vi: "Lưu kết quả chỉnh sửa" },
+    { zh: "更新索引与快照", en: "Update index and snapshot", vi: "Cập nhật chỉ mục và ảnh chụp trạng thái" },
   ],
-  auditor: [{ zh: "审计章节", en: "Audit chapter" }],
+  auditor: [{ zh: "审计章节", en: "Audit chapter", vi: "Kiểm tra chương" }],
 };
 
 function pipelineStages(agent: string, lang: StudioLanguage = "zh"): string[] | undefined {
-  return PIPELINE_STAGES[agent]?.map((stage) => pick(lang, stage.zh, stage.en));
+  return PIPELINE_STAGES[agent]?.map((stage) => pick(lang, stage.zh, stage.en, stage.vi));
 }
 
 function attachmentDisposition(fileName: string): string {
@@ -204,45 +205,45 @@ function attachmentDisposition(fileName: string): string {
   return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-const AGENT_LABELS: Record<string, BilingualLabel> = {
-  architect: { zh: "建书", en: "Book setup" },
-  writer: { zh: "写作", en: "Writing" },
-  auditor: { zh: "审计", en: "Audit" },
-  reviser: { zh: "修订", en: "Revision" },
-  exporter: { zh: "导出", en: "Export" },
+const AGENT_LABELS: Record<string, LocalizedLabel> = {
+  architect: { zh: "建书", en: "Book setup", vi: "Tạo quyển" },
+  writer: { zh: "写作", en: "Writing", vi: "Sáng tác" },
+  auditor: { zh: "审计", en: "Audit", vi: "Kiểm tra" },
+  reviser: { zh: "修订", en: "Revision", vi: "Chỉnh sửa" },
+  exporter: { zh: "导出", en: "Export", vi: "Xuất bản" },
 };
-const TOOL_LABELS: Record<string, BilingualLabel> = {
-  read: { zh: "读取文件", en: "Read file" },
-  edit: { zh: "编辑文件", en: "Edit file" },
-  grep: { zh: "搜索", en: "Search" },
-  ls: { zh: "列目录", en: "List directory" },
-  propose_action: { zh: "确认动作", en: "Confirm action" },
-  short_fiction_run: { zh: "短篇生产", en: "Short fiction" },
-  script_create: { zh: "剧本创作", en: "Script creation" },
-  storyboard_create: { zh: "分镜创作", en: "Storyboard creation" },
-  interactive_film_create: { zh: "互动影游", en: "Interactive film" },
-  translation_create: { zh: "翻译项目", en: "Translation" },
-  fanfic_create: { zh: "同人创作", en: "Fanfiction" },
-  continuation_import: { zh: "导入续写", en: "Continuation import" },
-  spinoff_create: { zh: "番外创作", en: "Side story" },
-  imitation_create: { zh: "仿写创作", en: "Style imitation" },
-  generate_cover: { zh: "生成封面", en: "Cover generation" },
-  play_edit: { zh: "编辑互动世界", en: "Edit interactive world" },
-  play_start: { zh: "启动互动世界", en: "Start interactive world" },
-  play_revise: { zh: "重做互动回合", en: "Redo interactive turn" },
-  play_step: { zh: "推进互动世界", en: "Advance interactive world" },
-  create_narrative_forecast: { zh: "剧情多线推演", en: "Narrative forecast" },
-  get_narrative_forecast: { zh: "核验剧情推演", en: "Recheck forecast" },
-  select_narrative_branch: { zh: "采用候选分支", en: "Select candidate branch" },
+const TOOL_LABELS: Record<string, LocalizedLabel> = {
+  read: { zh: "读取文件", en: "Read file", vi: "Đọc tệp" },
+  edit: { zh: "编辑文件", en: "Edit file", vi: "Chỉnh sửa tệp" },
+  grep: { zh: "搜索", en: "Search", vi: "Tìm kiếm" },
+  ls: { zh: "列目录", en: "List directory", vi: "Liệt kê thư mục" },
+  propose_action: { zh: "确认动作", en: "Confirm action", vi: "Xác nhận thao tác" },
+  short_fiction_run: { zh: "短篇生产", en: "Short fiction", vi: "Sáng tác truyện ngắn" },
+  script_create: { zh: "剧本创作", en: "Script creation", vi: "Sáng tác kịch bản" },
+  storyboard_create: { zh: "分镜创作", en: "Storyboard creation", vi: "Tạo phân cảnh" },
+  interactive_film_create: { zh: "互动影游", en: "Interactive film", vi: "Tạo phim tương tác" },
+  translation_create: { zh: "翻译项目", en: "Translation", vi: "Tạo dự án dịch" },
+  fanfic_create: { zh: "同人创作", en: "Fanfiction", vi: "Sáng tác đồng nhân" },
+  continuation_import: { zh: "导入续写", en: "Continuation import", vi: "Nhập truyện viết tiếp" },
+  spinoff_create: { zh: "番外创作", en: "Side story", vi: "Sáng tác ngoại truyện" },
+  imitation_create: { zh: "仿写创作", en: "Style imitation", vi: "Sáng tác mô phỏng phong cách" },
+  generate_cover: { zh: "生成封面", en: "Cover generation", vi: "Tạo bìa" },
+  play_edit: { zh: "编辑互动世界", en: "Edit interactive world", vi: "Chỉnh sửa thế giới tương tác" },
+  play_start: { zh: "启动互动世界", en: "Start interactive world", vi: "Khởi động thế giới tương tác" },
+  play_revise: { zh: "重做互动回合", en: "Redo interactive turn", vi: "Làm lại lượt tương tác" },
+  play_step: { zh: "推进互动世界", en: "Advance interactive world", vi: "Tiếp diễn thế giới tương tác" },
+  create_narrative_forecast: { zh: "剧情多线推演", en: "Narrative forecast", vi: "Dự báo diễn biến truyện" },
+  get_narrative_forecast: { zh: "核验剧情推演", en: "Recheck forecast", vi: "Kiểm tra lại dự báo" },
+  select_narrative_branch: { zh: "采用候选分支", en: "Select candidate branch", vi: "Chọn nhánh truyện" },
 };
 
 function resolveToolLabel(tool: string, agent?: string, lang: StudioLanguage = "zh"): string {
   if (tool === "sub_agent" && agent) {
     const label = AGENT_LABELS[agent];
-    return label ? pick(lang, label.zh, label.en) : agent;
+    return label ? pick(lang, label.zh, label.en, label.vi) : agent;
   }
   const label = TOOL_LABELS[tool];
-  return label ? pick(lang, label.zh, label.en) : tool;
+  return label ? pick(lang, label.zh, label.en, label.vi) : tool;
 }
 
 function formatTaskElapsed(ms: number, lang: StudioLanguage): string {
@@ -4749,11 +4750,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           const msg = e?.message ?? String(e);
           if (/API key/i.test(msg)) {
             return c.json({
-              error: pick(language, `请先为 ${reqService} 配置 API Key`, `Configure an API Key for ${reqService} first`),
+              error: pick(surfaceLanguage, `请先为 ${reqService} 配置 API Key`, `Configure an API Key for ${reqService} first`, `Hãy cấu hình API Key cho ${reqService} trước`),
               response: pick(
-                language,
+                surfaceLanguage,
                 `请先在模型配置中为 ${reqService} 填写 API Key，然后再试。`,
                 `Fill in an API Key for ${reqService} in the model settings, then try again.`,
+                `Hãy nhập API Key cho ${reqService} trong phần cài đặt mô hình rồi thử lại.`,
               ),
             }, 400);
           }
@@ -5083,13 +5085,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             if (event.type === "tool_execution_start") {
               const args = event.args as Record<string, unknown> | undefined;
               const agent = event.toolName === "sub_agent" ? (args?.agent as string | undefined) : undefined;
-              const stages = agent ? (pipelineStages(agent, language) ?? []) : [];
+              const stages = agent ? (pipelineStages(agent, surfaceLanguage) ?? []) : [];
 
               collectedToolExecs.push({
                 id: event.toolCallId,
                 tool: event.toolName,
                 agent,
-                label: resolveToolLabel(event.toolName, agent, language),
+                label: resolveToolLabel(event.toolName, agent, surfaceLanguage),
                 status: "running",
                 args,
                 stages: stages.length > 0
@@ -5160,7 +5162,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           agentBookId,
           requestedIntent,
           collectedToolExecs,
-          language,
+          language: surfaceLanguage,
         });
         if (actionExecutionError) {
           return c.json({
@@ -5224,7 +5226,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           if (resolveCreatedBookIdFromToolExecs(collectedToolExecs)) {
             await finalizeCreatedBook();
           }
-          const failure = formatAgentFailure(result.errorMessage, language);
+          const failure = formatAgentFailure(result.errorMessage, surfaceLanguage);
           return c.json({
             error: { code: failure.code, message: failure.message },
             response: failure.message,
@@ -5236,7 +5238,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           agentBookId,
           requestedIntent,
           collectedToolExecs,
-          language,
+          language: surfaceLanguage,
         });
         if (actionExecutionError) {
           return c.json({
