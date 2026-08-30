@@ -394,7 +394,7 @@ export class ComposerAgent extends BaseAgent {
     if (request.candidates.length <= 1) {
       return request.candidates.map((candidate) => candidate.source);
     }
-    const isEn = request.language === "en";
+    const isEn = request.language !== "zh";
     const candidates = request.candidates.map((candidate, index) => [
       `#${index + 1} ${candidate.source}`,
       `heading: ${candidate.heading}`,
@@ -442,7 +442,7 @@ export class ComposerAgent extends BaseAgent {
   }
 
   async selectReferenceSections(request: ReferenceSectionSelectionRequest): Promise<ReadonlyArray<string>> {
-    const isEn = request.language === "en";
+    const isEn = request.language !== "zh";
     const candidates = request.candidates.map((candidate, index) => [
       `#${index + 1} ${candidate.source}`,
       `title: ${candidate.title}`,
@@ -494,7 +494,7 @@ export class ComposerAgent extends BaseAgent {
   }
 
   async compileCompressibleContext(request: CompressibleContextCompileRequest): Promise<string> {
-    const isEn = request.language === "en";
+    const isEn = request.language !== "zh";
     const protectedBlock = renderContextEntries(request.protectedEntries);
     const compressibleBlock = renderContextEntries(request.compressibleEntries);
     const system = isEn
@@ -841,8 +841,8 @@ async function buildHookDebtEntries(
 
       const seedSummary = findHookSummary(summaries, hook.hookId, hook.startChapter, "seed");
       const latestSummary = findHookSummary(summaries, hook.hookId, hook.lastAdvancedChapter, "latest");
-      const role = language === "en" ? "memo-referenced debt" : "备忘引用旧债";
-      const promise = hook.expectedPayoff || (language === "en" ? "(unspecified)" : "（未写明）");
+      const role = language !== "zh" ? "memo-referenced debt" : "备忘引用旧债";
+      const promise = hook.expectedPayoff || (language !== "zh" ? "(unspecified)" : "（未写明）");
       const seedBeat = seedSummary
         ? renderHookDebtBeat(seedSummary)
         : (hook.notes || promise);
@@ -853,10 +853,10 @@ async function buildHookDebtEntries(
 
       return [{
         source: `runtime/hook_debt#${hook.hookId}`,
-        reason: language === "en"
+        reason: language !== "zh"
           ? "Narrative debt brief with original seed text for this hook agenda target."
           : "含原始种子文本的叙事债务简报。",
-        excerpt: language === "en"
+        excerpt: language !== "zh"
           ? [
               `${hook.hookId} (${hook.type}, ${role}, open ${age} chapters)`,
               `reader promise: ${promise}`,

@@ -57,16 +57,17 @@ export function shortRunCharsPerChapterRange(language: "zh" | "en" | "vi"): {
   readonly min: number;
   readonly max: number;
 } {
-  return language === "en"
+  return language !== "zh"
     ? { min: SHORT_FICTION_EN_MIN_WORDS_PER_CHAPTER, max: SHORT_FICTION_EN_MAX_WORDS_PER_CHAPTER }
     : { min: SHORT_FICTION_MIN_CHARS_PER_CHAPTER, max: SHORT_FICTION_MAX_CHARS_PER_CHAPTER };
 }
 
 export function shortRunCharsPerChapterError(value: number, language: "zh" | "en" | "vi"): string {
   const { min, max } = shortRunCharsPerChapterRange(language);
-  return language === "en"
-    ? `charsPerChapter=${value} 超出英文短篇的合法范围（每章 ${min}-${max} 个英文单词）。`
-      + `charsPerChapter=${value} is outside the valid range for English shorts (${min}-${max} words per chapter).`
+  return language === "vi"
+    ? `charsPerChapter=${value} nằm ngoài phạm vi hợp lệ cho truyện ngắn tiếng Việt (${min}-${max} từ mỗi chương).`
+    : language === "en"
+      ? `charsPerChapter=${value} is outside the valid range for English shorts (${min}-${max} words per chapter).`
     : `charsPerChapter=${value} 超出中文短篇的合法范围（每章 ${min}-${max} 个汉字）。`
       + `charsPerChapter=${value} is outside the valid range for Chinese shorts (${min}-${max} characters per chapter).`;
 }

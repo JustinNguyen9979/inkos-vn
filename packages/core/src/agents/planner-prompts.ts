@@ -380,7 +380,7 @@ export function buildPlannerUserMessage(input: PlannerUserMessageInput): string 
 function buildBriefBlock(brief: string, language: "zh" | "en" | "vi"): string {
   const trimmed = brief.trim();
   if (!trimmed) return "";
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Creative brief (user's original intent — authoritative)
 ${trimmed}
 
@@ -395,7 +395,7 @@ brief 是用户的直接指令。本章规划时，必须优先兑现 brief 里�
 function buildChapterContextBlock(chapterContext: string, language: "zh" | "en" | "vi"): string {
   const trimmed = chapterContext.trim();
   if (!trimmed) return "";
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Per-chapter user instruction (highest priority for this chapter)
 ${trimmed}
 
@@ -419,7 +419,7 @@ export function buildGoldenOpeningGuidance(
 ): string {
   if (chapterNumber > 3) return "";
 
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Golden Opening Guidance — Chapter ${chapterNumber}
 
 This is chapter ${chapterNumber} of the opening three — the chapters that decide whether a reader stays. The Golden Three Chapters rule assigns each chapter a load-bearing slot: chapter 1 must throw the reader straight into the core conflict (the protagonist enters already facing the main contradiction — chase, dead-end, dispossession, transmigration-as-crisis), not a paragraph of background, family tree, weather, or dynastic preamble. Chapter 2 must put the protagonist's edge — the system, the power, the rebirth-memory, the information advantage — on the stage through one concrete event (not "he awakened a power" narrated, but "he used it for X and Y happened"). Chapter 3 must lock in a concrete short-term goal achievable within the next 3-10 chapters (build the first stake of capital, take down the small antagonist, save someone), giving the story forward pull.

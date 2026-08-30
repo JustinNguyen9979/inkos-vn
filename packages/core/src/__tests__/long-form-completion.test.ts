@@ -46,4 +46,23 @@ describe("long-form completion", () => {
     expect(recoverAfterContinuation.mock.calls[0]?.[0]).toContain("## 剧本正文");
     expect(result.content.match(/^# 雨夜/gmu)).toHaveLength(1);
   });
+
+  it("requests an output-limit continuation in Vietnamese", async () => {
+    const generate = vi.fn()
+      .mockRejectedValueOnce(new PartialResponseError("Mở đầu", new Error("limit"), "output-limit"))
+      .mockResolvedValueOnce({
+        content: "Kết thúc",
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      });
+
+    await completeLongForm({
+      messages: [{ role: "user", content: "Viết đầy đủ" }],
+      generate,
+      language: "vi",
+    });
+
+    const continuation = generate.mock.calls[1]?.[0]?.at(-1)?.content;
+    expect(continuation).toContain("Tiếp tục đúng vị trí");
+    expect(continuation).not.toMatch(/[一-鿿]/);
+  });
 });

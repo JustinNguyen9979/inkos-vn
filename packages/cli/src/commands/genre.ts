@@ -15,6 +15,30 @@ export function buildGenreTemplate(
   },
   language: CliLanguage = "zh",
 ): string {
+  if (language === "vi") {
+    return `---
+name: ${params.name}
+id: ${params.id}
+chapterTypes: ["phát triển", "thiết lập", "chuyển tiếp", "cao trào"]
+fatigueWords: ["kinh ngạc", "không thể tin nổi", "khó tin"]
+numericalSystem: ${params.numerical}
+powerScaling: ${params.power}
+eraResearch: ${params.era}
+pacingRule: "Cứ mỗi 2-3 chương phải có một bước tiến hoặc kết quả rõ ràng"
+satisfactionTypes: ["đạt mục tiêu", "vượt chướng ngại", "hé lộ sự thật"]
+auditDimensions: [1,2,3,6,7,8,9,10,13,14,15,16,17,18,19]
+---
+
+## Điều cấm kỵ của thể loại
+
+- (thêm những điều cần tránh cho thể loại này)
+
+## Hướng dẫn tự sự
+
+(mô tả trọng tâm tự sự và yêu cầu phong cách của thể loại này)
+`;
+  }
+
   if (language === "en") {
     return `---
 name: ${params.name}

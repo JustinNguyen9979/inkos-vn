@@ -78,18 +78,22 @@ export function buildNarrativeForecastSelectionInstruction(
   branchId: string,
   language: "zh" | "en" | "vi",
 ): string {
-  return language === "zh"
-    ? `请调用 select_narrative_branch，选择推演 ${forecastId} 的 ${branchId}。只保存候选计划，不修改正文、大纲或正史状态。`
-    : `Call select_narrative_branch for ${branchId} in forecast ${forecastId}. Save only the candidate plan; do not modify prose, outlines, or canonical state.`;
+  return language === "vi"
+    ? `Hãy gọi select_narrative_branch để chọn nhánh ${branchId} trong dự báo ${forecastId}. Chỉ lưu kế hoạch ứng viên; không sửa nội dung truyện, dàn ý hoặc dữ kiện chính thức.`
+    : language === "zh"
+      ? `请调用 select_narrative_branch，选择推演 ${forecastId} 的 ${branchId}。只保存候选计划，不修改正文、大纲或正史状态。`
+      : `Call select_narrative_branch for ${branchId} in forecast ${forecastId}. Save only the candidate plan; do not modify prose, outlines, or canonical state.`;
 }
 
 export function buildNarrativeForecastRecheckInstruction(
   forecastId: string,
   language: "zh" | "en" | "vi",
 ): string {
-  return language === "zh"
-    ? `请调用 get_narrative_forecast，重新核验推演 ${forecastId} 是否已经过期。`
-    : `Call get_narrative_forecast for forecast ${forecastId} and report whether it is stale.`;
+  return language === "vi"
+    ? `Hãy gọi get_narrative_forecast cho dự báo ${forecastId} và báo xem dự báo đã lỗi thời hay chưa.`
+    : language === "zh"
+      ? `请调用 get_narrative_forecast，重新核验推演 ${forecastId} 是否已经过期。`
+      : `Call get_narrative_forecast for forecast ${forecastId} and report whether it is stale.`;
 }
 
 const RISK_LABELS: Record<ForecastRisk["kind"], readonly [string, string]> = {
@@ -98,8 +102,8 @@ const RISK_LABELS: Record<ForecastRisk["kind"], readonly [string, string]> = {
   character: ["人物", "Character"],
 };
 
-function label(zh: boolean, values: readonly [string, string]): string {
-  return zh ? values[0] : values[1];
+function label(_zh: boolean, values: readonly [string, string]): string {
+  return tr(values[0], values[1]);
 }
 
 function RiskPills({ risks, zh }: { risks: readonly ForecastRisk[]; zh: boolean }) {

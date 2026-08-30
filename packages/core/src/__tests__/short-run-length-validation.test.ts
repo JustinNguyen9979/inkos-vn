@@ -66,6 +66,22 @@ describe("short_run charsPerChapter validation (envelope layer)", () => {
     }).success).toBe(true);
   });
 
+  it("uses Vietnamese word limits and Vietnamese validation copy", () => {
+    expect(ShortRunActionPayloadSchema.safeParse({
+      direction: "một truyện ngắn Việt Nam",
+      language: "vi",
+      charsPerChapter: 700,
+    }).success).toBe(true);
+
+    const parsed = ShortRunActionPayloadSchema.safeParse({
+      direction: "một truyện ngắn Việt Nam",
+      language: "vi",
+      charsPerChapter: 1100,
+    });
+    expect(parsed.success).toBe(false);
+    expect(JSON.stringify(!parsed.success ? parsed.error.issues : [])).toContain("từ mỗi chương");
+  });
+
   it("keeps the 600-1200 union when language is omitted (session default decides later)", () => {
     expect(ShortRunActionPayloadSchema.safeParse({
       direction: "a short story",

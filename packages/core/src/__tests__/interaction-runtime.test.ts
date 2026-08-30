@@ -124,6 +124,38 @@ describe("interaction runtime", () => {
     expect(result.responseText).toContain("卷一先查账还是先砸场");
   });
 
+  it("renders creation draft labels in Vietnamese when vi is selected", async () => {
+    const result = await runInteractionRequest({
+      session: InteractionSessionSchema.parse({
+        sessionId: "session-show-draft-vi",
+        projectRoot: "/tmp/project",
+        automationMode: "semi",
+        creationDraft: {
+          concept: "Một bí ẩn tại bến cảng về đêm.",
+          title: "Bến Cảng Đêm",
+          genre: "đô thị",
+          protagonist: "Lâm Nghiên",
+          nextQuestion: "Điều tra sổ sách trước?",
+          missingFields: [],
+          readyToCreate: false,
+        },
+        messages: [],
+        events: [],
+      }),
+      request: {
+        intent: "show_book_draft",
+        language: "vi",
+      },
+      tools: makeTools(),
+    });
+
+    expect(result.responseText).toContain("# Bản nháp truyện hiện tại");
+    expect(result.responseText).toContain("- Nhân vật chính: Lâm Nghiên");
+    expect(result.responseText).toContain("- Tiếp theo: Điều tra sổ sách trước?");
+    expect(result.responseText).not.toMatch(/[一-鿿]/);
+    expect(result.session.currentExecution?.stageLabel).toBe("đã hoàn tất");
+  });
+
   it("routes export_book through the shared export tool", async () => {
     const exportBook = vi.fn(async () => ({
       outputPath: "/tmp/project/exports/harbor.md",

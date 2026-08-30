@@ -17,12 +17,12 @@ export function renderHooksProjection(
   language: "zh" | "en" | "vi" = "zh",
   options?: { readonly currentChapter?: number },
 ): string {
-  const title = language === "en" ? "# Pending Hooks" : "# 伏笔池";
+  const title = language !== "zh" ? "# Pending Hooks" : "# 伏笔池";
   // Phase 7 + hotfixes 1 & 2: depends_on / pays_off_in_arc / core_hook / half_life / promoted
   // are visible columns, so writer and reviewer both see the causal chain, planned payoff arc,
   // stale threshold, and promotion flag. stale / blocked diagnostic flags are appended to the
   // status cell.
-  const headers = language === "en"
+  const headers = language !== "zh"
     ? [
       "| hook_id | start_chapter | type | status | last_advanced_chapter | expected_payoff | payoff_timing | depends_on | pays_off_in_arc | core_hook | half_life | promoted | notes |",
       "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -72,12 +72,12 @@ export function renderHooksProjection(
 }
 
 function renderDependsOnCell(ids: ReadonlyArray<string>, language: "zh" | "en" | "vi"): string {
-  if (ids.length === 0) return language === "en" ? "none" : "无";
+  if (ids.length === 0) return language !== "zh" ? "none" : "无";
   return `[${ids.join(", ")}]`;
 }
 
 function renderCoreHookCell(isCore: boolean, language: "zh" | "en" | "vi"): string {
-  if (language === "en") return isCore ? "true" : "false";
+  if (language !== "zh") return isCore ? "true" : "false";
   return isCore ? "是" : "否";
 }
 
@@ -88,7 +88,7 @@ function renderHalfLifeCell(value: number | undefined): string {
 
 function renderPromotedCell(value: boolean | undefined, language: "zh" | "en" | "vi"): string {
   if (value === undefined) return "";
-  if (language === "en") return value ? "true" : "false";
+  if (language !== "zh") return value ? "true" : "false";
   return value ? "是" : "否";
 }
 
@@ -96,8 +96,8 @@ export function renderChapterSummariesProjection(
   state: ChapterSummariesState,
   language: "zh" | "en" | "vi" = "zh",
 ): string {
-  const title = language === "en" ? "# Chapter Summaries" : "# 章节摘要";
-  const headers = language === "en"
+  const title = language !== "zh" ? "# Chapter Summaries" : "# 章节摘要";
+  const headers = language !== "zh"
     ? [
       "| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |",
       "| --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -129,7 +129,7 @@ export function renderCurrentStateProjection(
   state: CurrentStateState,
   language: "zh" | "en" | "vi" = "zh",
 ): string {
-  const layout = language === "en"
+  const layout = language !== "zh"
     ? {
       title: "# Current State",
       tableHeader: "| Field | Value |",

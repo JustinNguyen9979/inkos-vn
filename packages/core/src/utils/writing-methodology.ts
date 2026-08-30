@@ -7,7 +7,7 @@
  * writer on every chapter as part of the style_guide context.
  */
 export function buildWritingMethodologySection(language: "zh" | "en" | "vi"): string {
-  if (language === "en") {
+  if (language !== "zh") {
     return buildEnglishMethodology();
   }
   return buildChineseMethodology();

@@ -301,7 +301,7 @@ export class PlannerAgent extends BaseAgent {
     readonly language: "zh" | "en" | "vi";
     readonly lengthSpec: LengthSpec;
   }): string {
-    if (input.language === "en") {
+    if (input.language !== "zh") {
       return [
         `# Chapter ${input.chapterNumber} memo`,
         "",
@@ -533,12 +533,12 @@ export class PlannerAgent extends BaseAgent {
   private renderHookBudget(activeCount: number, language: "zh" | "en" | "vi"): string {
     const cap = 12;
     if (activeCount < 10) {
-      return language === "en"
+      return language !== "zh"
         ? `### Hook Budget\n- ${activeCount} active hooks (capacity: ${cap})`
         : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔（容量：${cap}）`;
     }
     const remaining = Math.max(0, cap - activeCount);
-    return language === "en"
+    return language !== "zh"
       ? `### Hook Budget\n- ${activeCount} active hooks — approaching capacity (${cap}). Only ${remaining} new hook(s) allowed. Prioritize resolving existing debt over opening new threads.`
       : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔——接近容量上限（${cap}）。仅剩 ${remaining} 个新坑位。优先回收旧债，不要轻易开新线。`;
   }

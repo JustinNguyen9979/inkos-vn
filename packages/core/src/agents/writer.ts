@@ -185,7 +185,7 @@ export class WriterAgent extends BaseAgent {
       throw new Error("Writer requires governed chapter intent, memo, context package, and rule stack.");
     }
     const governedMemoryBlocks = buildGovernedMemoryEvidenceBlocks(input.contextPackage, resolvedLanguage);
-    const englishVarianceBrief = resolvedLanguage === "en"
+    const englishVarianceBrief = resolvedLanguage !== "zh"
       ? await buildEnglishVarianceBrief({
           bookDir,
           chapterNumber,

@@ -7,6 +7,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { deriveActiveBookIds, shouldRefetchBookCollections } from "../hooks/use-book-activity";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { tr } from "../lib/app-language";
 import {
   Plus,
   BookOpen,
@@ -186,14 +187,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
       {!hasServices && (
         <div className="rounded-lg border border-border/60 bg-card px-5 py-4 mb-8 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">还没有配置 AI 模型</div>
-            <div className="text-xs text-muted-foreground mt-0.5">配好一个服务商才能开始创作</div>
+            <div className="text-sm font-medium">{tr("还没有配置 AI 模型", "No AI model configured")}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{tr("配好一个服务商才能开始创作", "Configure a provider before you start writing")}</div>
           </div>
           <button
             onClick={nav.toServices}
             className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shrink-0"
           >
-            去配置
+            {tr("去配置", "Configure")}
           </button>
         </div>
       )}
@@ -257,8 +258,10 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                         book.status
                       }</span>
                     </div>
-                    {book.language === "en" && (
-                      <span className="px-1.5 py-0.5 rounded border border-primary/20 text-primary text-[10px] font-bold">EN</span>
+                    {(book.language === "en" || book.language === "vi") && (
+                      <span className="px-1.5 py-0.5 rounded border border-primary/20 text-primary text-[10px] font-bold">
+                        {book.language === "vi" ? "VI" : "EN"}
+                      </span>
                     )}
                     {book.fanficMode && (
                       <span className="flex items-center gap-1 text-purple-500">

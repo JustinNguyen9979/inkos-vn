@@ -179,7 +179,7 @@ Be strict. 80 means "ready to write without changes."`;
   }
 
   private buildFoundationExcerpt(foundation: ArchitectOutput, language: "zh" | "en" | "vi"): string {
-    return language === "en"
+    return language !== "zh"
       ? `## Story Bible\n${foundation.storyBible}\n\n## Volume Outline\n${foundation.volumeOutline}\n\n## Book Rules\n${foundation.bookRules}\n\n## Initial State\n${foundation.currentState}\n\n## Initial Hooks\n${foundation.pendingHooks}`
       : `## 世界设定\n${foundation.storyBible}\n\n## 卷纲\n${foundation.volumeOutline}\n\n## 规则\n${foundation.bookRules}\n\n## 初始状态\n${foundation.currentState}\n\n## 初始伏笔\n${foundation.pendingHooks}`;
   }

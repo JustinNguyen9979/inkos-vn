@@ -85,4 +85,11 @@ describe("analyzeSensitiveWords", () => {
     // Should have issues for both political and sexual/violence
     expect(result.issues.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("returns Vietnamese audit copy for Vietnamese custom terms", () => {
+    const result = analyzeSensitiveWords("Nhân vật nhắc đến từ-cấm hai lần: từ-cấm.", ["từ-cấm"], "vi");
+    expect(result.issues[0]?.category).toBe("Từ ngữ nhạy cảm");
+    expect(result.issues[0]?.description).toContain("Phát hiện");
+    expect(JSON.stringify(result.issues)).not.toMatch(/[一-鿿]/);
+  });
 });

@@ -24,6 +24,7 @@ import {
   stripStructuralMarkers,
   type TruthFrontmatter,
 } from "../../lib/truth-display";
+import { tr } from "../../lib/app-language";
 
 export interface BookSidebarProps {
   readonly bookId: string;
@@ -194,7 +195,9 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
             <Loader2 size={16} className="text-muted-foreground animate-spin" />
           </div>
         ) : content === null ? (
-          <p className="text-[14px] leading-6 text-muted-foreground/50 italic px-4 py-3">文件不存在</p>
+          <p className="text-[14px] leading-6 text-muted-foreground/50 italic px-4 py-3">
+            {tr("文件不存在", "File does not exist")}
+          </p>
         ) : editing ? (
           <textarea
             value={editContent}
@@ -235,9 +238,9 @@ function PanelView({ bookId, theme: _theme, t, sse }: BookSidebarProps) {
   }, [sse.messages]);
 
   const OP_LABELS: Record<string, string> = {
-    write: isZh ? "正在写作中..." : "Writing...",
-    audit: isZh ? "正在审计中..." : "Auditing...",
-    revise: isZh ? "正在修订中..." : "Revising...",
+    write: tr("正在写作中...", "Writing..."),
+    audit: tr("正在审计中...", "Auditing..."),
+    revise: tr("正在修订中...", "Revising..."),
   };
 
   return (
@@ -331,7 +334,7 @@ export function BookSidebarToggle({ bookId, theme, t, sse }: BookSidebarProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
-              <span className="text-[15px] leading-6 font-medium text-muted-foreground">书籍信息</span>
+              <span className="text-[15px] leading-6 font-medium text-muted-foreground">{tr("书籍信息", "Book information")}</span>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <PanelRightClose size={14} />
               </button>

@@ -1093,6 +1093,13 @@ describe("createStudioServer daemon lifecycle", () => {
       language: "en",
       languageExplicit: true,
     });
+
+    const invalid = await app.request("http://localhost/api/v1/project/language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: "invalid" }),
+    });
+    expect(invalid.status).toBe(400);
   });
 
   it("writes parseable custom genre frontmatter when user text contains YAML punctuation", async () => {

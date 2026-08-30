@@ -51,5 +51,16 @@ describe("genre template scaffold", () => {
     expect(extractKeys(buildGenreTemplate(params, "en"))).toEqual(
       extractKeys(buildGenreTemplate(params, "zh")),
     );
+    expect(extractKeys(buildGenreTemplate(params, "vi"))).toEqual(
+      extractKeys(buildGenreTemplate(params, "zh")),
+    );
+  });
+
+  it("produces a Vietnamese template for vi", () => {
+    const template = buildGenreTemplate(params, "vi");
+    expect(template).toContain("## Điều cấm kỵ của thể loại");
+    expect(template).toContain("## Hướng dẫn tự sự");
+    expect(template).toContain("Cứ mỗi 2-3 chương");
+    expect(template).not.toMatch(CHINESE_CHARS);
   });
 });

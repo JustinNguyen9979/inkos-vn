@@ -74,7 +74,8 @@ export function analyzeSensitiveWords(
   const found: SensitiveWordMatch[] = [];
   const issues: AuditIssue[] = [];
   const isEnglish = language === "en";
-  const joiner = isEnglish ? ", " : "、";
+  const isVietnamese = language === "vi";
+  const joiner = language === "zh" ? "、" : ", ";
 
   // Check built-in word lists
   for (const list of WORD_LISTS) {
@@ -84,11 +85,17 @@ export function analyzeSensitiveWords(
       const wordSummary = matches.map((m) => `"${m.word}"×${m.count}`).join(joiner);
       issues.push({
         severity: list.severity === "block" ? "critical" : "warning",
-        category: isEnglish ? "Sensitive terms" : "敏感词",
-        description: isEnglish
+        category: isVietnamese ? "Từ ngữ nhạy cảm" : isEnglish ? "Sensitive terms" : "敏感词",
+        description: isVietnamese
+          ? `Phát hiện từ ngữ nhạy cảm: ${wordSummary}`
+          : isEnglish
           ? `Detected ${list.englishLabel}: ${wordSummary}`
           : `检测到${list.label}：${wordSummary}`,
-        suggestion: isEnglish
+        suggestion: isVietnamese
+          ? (list.severity === "block"
+              ? "Phải xóa hoặc thay thế các từ bị chặn này trước khi xuất bản"
+              : "Nên thay thế hoặc làm nhẹ các từ này để giảm rủi ro kiểm duyệt")
+          : isEnglish
           ? (list.severity === "block"
               ? "You must remove or replace these blocked terms before publication"
               : `Replace or soften these ${list.englishLabel} to reduce moderation risk`)
@@ -107,11 +114,15 @@ export function analyzeSensitiveWords(
       const wordSummary = customMatches.map((m) => `"${m.word}"×${m.count}`).join(joiner);
       issues.push({
         severity: "warning",
-        category: isEnglish ? "Sensitive terms" : "敏感词",
-        description: isEnglish
+        category: isVietnamese ? "Từ ngữ nhạy cảm" : isEnglish ? "Sensitive terms" : "敏感词",
+        description: isVietnamese
+          ? `Phát hiện từ nhạy cảm tùy chỉnh: ${wordSummary}`
+          : isEnglish
           ? `Detected custom sensitive term(s): ${wordSummary}`
           : `检测到自定义敏感词：${wordSummary}`,
-        suggestion: isEnglish
+        suggestion: isVietnamese
+          ? "Thay thế hoặc xóa các từ này theo quy tắc của dự án"
+          : isEnglish
           ? "Replace or remove these terms according to project rules"
           : "根据项目规则替换或删除这些词语",
       });

@@ -98,7 +98,7 @@ function buildGenreIntro(book: BookConfig, gp: GenreProfile): string {
 function buildGovernedInputContract(language: "zh" | "en" | "vi", governed: boolean): string {
   if (!governed) return "";
 
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Input Governance Contract
 
 - Chapter-specific steering comes from the provided chapter intent and composed context package.
@@ -132,7 +132,7 @@ function buildGovernedInputContract(language: "zh" | "en" | "vi", governed: bool
 function buildChapterMemoContract(language: "zh" | "en" | "vi", governed: boolean): string {
   if (!governed) return "";
 
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Chapter Memo Alignment
 
 You will receive a chapter_memo composed of 7 markdown sections:
@@ -166,7 +166,7 @@ Address each section in order when drafting the chapter. Every section must leav
 }
 
 function buildLengthGuidance(lengthSpec: LengthSpec, language: "zh" | "en" | "vi"): string {
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Length Guidance
 
 - Target length: ${lengthSpec.target} words
@@ -193,7 +193,7 @@ export function buildGoldenOpeningDiscipline(
 ): string {
   if (chapterNumber === undefined || chapterNumber > 3) return "";
 
-  if (language === "en") {
+  if (language !== "zh") {
     return `## Golden Opening Discipline — Chapter ${chapterNumber}
 
 This is chapter ${chapterNumber} of the opening three — your prose directly decides whether the reader stays. The Golden Three Chapters rule is a hard constraint on your sentences, not advice. Chapter 1: within the first 800 words the protagonist must trip the main-line conflict (chase, dead-end, dispossession, transmigration-as-crisis); long background paragraphs are forbidden, and worldbuilding rides on the protagonist's actions instead of being explained in a block. **The last sentence of the first 300 words (the reader's first phone screen) must land a dramatic / reversal / striking beat — "Officer, I transmigrated"-level, "I'll probably die tomorrow"-level, "I'm attending my own funeral"-level — not background or scene-setting. When the reader scrolls to the bottom of the first screen they must feel pulled into the next line.** Chapter 2: the edge — power, system, rebirth-memory, information advantage — must be **performed** (one concrete event of using it, with a visible consequence), not **announced** (a narrator paragraph saying it exists). Chapter 3: somewhere in this chapter the protagonist's next quantifiable short-term goal must surface, so the reader can name what comes next when they close the page.
@@ -258,7 +258,7 @@ function buildGenreRules(gp: GenreProfile, genreBody: string): string {
 function buildNarrativePersonRule(bookRules: BookRules | null, language: "zh" | "en" | "vi"): string {
   const person = bookRules?.narrativePerson;
   if (!person) return "";
-  if (language === "en") {
+  if (language !== "zh") {
     return person === "first"
       ? "## Narrative person (hard constraint)\nWrite this book entirely in FIRST person (the protagonist's inner viewpoint). Do NOT slip into third person or an omniscient narrator — this overrides genre convention and your default."
       : "## Narrative person (hard constraint)\nWrite this book in THIRD person.";

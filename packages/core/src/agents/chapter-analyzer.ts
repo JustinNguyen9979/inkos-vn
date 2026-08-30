@@ -12,6 +12,7 @@ import {
 import { filterEmotionalArcs, filterSubplots } from "../utils/context-filter.js";
 import { countChapterLength, resolveLengthCountingMode } from "../utils/length-metrics.js";
 import { retrieveMemorySelection } from "../utils/memory-retrieval.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -129,13 +130,13 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       emotionalArcs: emotionalWorkingSet,
       characterMatrix: matrixWorkingSet,
       bibleBlock: !governedMode && storyBible !== this.missingFilePlaceholder(resolvedLanguage)
-        ? resolvedLanguage === "en"
+        ? resolvedLanguage !== "zh"
           ? `\n## Story Bible\n${storyBible}\n`
           : `\n## 世界观设定\n${storyBible}\n`
         : "",
       outlineOrControlBlock: reducedControlBlock || (
         volumeOutline !== this.missingFilePlaceholder(resolvedLanguage)
-          ? resolvedLanguage === "en"
+          ? resolvedLanguage !== "zh"
             ? `\n## Volume Outline\n${volumeOutline}\n`
             : `\n## 卷纲\n${volumeOutline}\n`
           : ""
@@ -143,7 +144,7 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       hooksBlock: governedMemoryBlocks?.hooksBlock
         ?? (
           hooksWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
-            ? resolvedLanguage === "en"
+            ? resolvedLanguage !== "zh"
               ? `\n## Current Hooks\n${hooksWorkingSet}\n`
               : `\n## 当前伏笔池\n${hooksWorkingSet}\n`
             : ""
@@ -151,24 +152,24 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       summariesBlock: governedMemoryBlocks?.summariesBlock
         ?? (
           chapterSummaries !== this.missingFilePlaceholder(resolvedLanguage)
-            ? resolvedLanguage === "en"
+            ? resolvedLanguage !== "zh"
               ? `\n## Existing Chapter Summaries\n${chapterSummaries}\n`
               : `\n## 已有章节摘要\n${chapterSummaries}\n`
             : ""
         ),
       volumeSummariesBlock: governedMemoryBlocks?.volumeSummariesBlock ?? "",
       subplotBlock: subplotWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
-        ? resolvedLanguage === "en"
+        ? resolvedLanguage !== "zh"
           ? `\n## Current Subplot Board\n${subplotWorkingSet}\n`
           : `\n## 当前支线进度板\n${subplotWorkingSet}\n`
         : "",
       emotionalBlock: emotionalWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
-        ? resolvedLanguage === "en"
+        ? resolvedLanguage !== "zh"
           ? `\n## Current Emotional Arcs\n${emotionalWorkingSet}\n`
           : `\n## 当前情感弧线\n${emotionalWorkingSet}\n`
         : "",
       matrixBlock: matrixWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
-        ? resolvedLanguage === "en"
+        ? resolvedLanguage !== "zh"
           ? `\n## Current Character Matrix\n${matrixWorkingSet}\n`
           : `\n## 当前角色交互矩阵\n${matrixWorkingSet}\n`
         : "",
@@ -176,7 +177,7 @@ export class ChapterAnalyzerAgent extends BaseAgent {
 
     const response = await this.chat(
       [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: withVietnameseOutputContract(systemPrompt, resolvedLanguage) },
         { role: "user", content: userPrompt },
       ],
       { temperature: 0.3 },
@@ -217,7 +218,7 @@ export class ChapterAnalyzerAgent extends BaseAgent {
     bookRulesBody: string,
     language: "zh" | "en" | "vi",
   ): string {
-    if (language === "en") {
+    if (language !== "zh") {
       const numericalBlock = genreProfile.numericalSystem
         ? "\n- This genre tracks numerical/resources systems; UPDATED_LEDGER must capture every resource change shown in the chapter."
         : "\n- This genre has no numerical system; leave UPDATED_LEDGER empty.";
@@ -454,7 +455,7 @@ ${bookRulesBody ? `## 本书规则\n\n${bookRulesBody}` : ""}
     readonly bibleBlock: string;
     readonly outlineOrControlBlock: string;
   }): string {
-    if (params.language === "en") {
+    if (params.language !== "zh") {
       const titleLine = params.chapterTitle
         ? `Chapter Title: ${params.chapterTitle}\n`
         : "";
@@ -514,7 +515,7 @@ ${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params
         .join("\n")
       : "- none";
 
-    return language === "en"
+    return language !== "zh"
       ? `\n## Chapter Control Inputs (compiled by Planner/Composer)
 ${chapterIntent}
 
@@ -585,7 +586,7 @@ ${overrides}\n`;
       return this.missingFilePlaceholder(language);
     }
 
-    const header = language === "en"
+    const header = language !== "zh"
       ? [
           "| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |",
           "| --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -625,10 +626,10 @@ ${overrides}\n`;
   }
 
   private missingFilePlaceholder(language: "zh" | "en" | "vi"): string {
-    return language === "en" ? "(file not created yet)" : "(文件尚未创建)";
+    return language !== "zh" ? "(file not created yet)" : "(文件尚未创建)";
   }
 
   private defaultChapterTitle(chapterNumber: number, language: "zh" | "en" | "vi"): string {
-    return language === "en" ? `Chapter ${chapterNumber}` : `第${chapterNumber}章`;
+    return language !== "zh" ? `Chapter ${chapterNumber}` : `第${chapterNumber}章`;
   }
 }

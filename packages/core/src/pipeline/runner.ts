@@ -114,7 +114,7 @@ function formatImportedChapter(
   language: LengthLanguage,
   content = chapter.content,
 ): string {
-  return language === "en"
+  return language !== "zh"
     ? `Chapter ${index + 1}: ${chapter.title}\n\n${content}`
     : `第${index + 1}章 ${chapter.title}\n\n${content}`;
 }
@@ -151,7 +151,7 @@ function buildTitleCatalog(
   language: LengthLanguage,
 ): string {
   return chapters.map((chapter, index) =>
-    language === "en"
+    language !== "zh"
       ? `- Chapter ${index + 1}: ${chapter.title} (${chapter.content.length} chars)`
       : `- 第${index + 1}章：${chapter.title}（${chapter.content.length}字）`,
   ).join("\n");
@@ -168,7 +168,7 @@ export function buildSpinoffFoundationContext(
   language: "zh" | "en" | "vi",
 ): string {
   const dir = direction?.trim();
-  if (language === "en") {
+  if (language !== "zh") {
     return [
       "## This is a SIDE-STORY (番外)",
       "Reuse the established characters, world, and rules from the parent canon below. Tell an INDEPENDENT side plot — a bonus arc, a character backstory, or a what-if — that does NOT advance or contradict the parent work's main storyline.",
@@ -198,7 +198,7 @@ export function buildImportFoundationSource(
   }
 
   const anchorIndexes = pickImportAnchorIndexes(chapters.length, edgeChapterCount, middleAnchorCount);
-  const header = language === "en"
+  const header = language !== "zh"
     ? [
         "## Import foundation source package",
         "",
@@ -209,8 +209,8 @@ export function buildImportFoundationSource(
         "",
         `本次导入共 ${chapters.length} 章。这里选取完整的开篇章节、结尾续写点和中段锚点，并保留完整标题目录；未选章节将在后续顺序回放中逐章分析并沉淀 truth files。`,
       ].join("\n");
-  const catalogTitle = language === "en" ? "## Complete chapter title catalog" : "## 完整章节标题目录";
-  const anchorsTitle = language === "en" ? "## Complete source chapters selected for architecture" : "## 用于反推基础设定的完整锚点章节";
+  const catalogTitle = language !== "zh" ? "## Complete chapter title catalog" : "## 完整章节标题目录";
+  const anchorsTitle = language !== "zh" ? "## Complete source chapters selected for architecture" : "## 用于反推基础设定的完整锚点章节";
   const anchorText = anchorIndexes
     .map((index) => {
       const chapter = chapters[index]!;
@@ -472,7 +472,29 @@ export class PipelineRunner {
   }
 
   private localize(language: LengthLanguage, messages: { zh: string; en: string }): string {
-    return language === "en" ? messages.en : messages.zh;
+    if (language === "vi") {
+      const exact: Readonly<Record<string, string>> = {
+        "Stage: ": "Giai đoạn: ",
+        "Extracting source style fingerprint...": "Đang trích xuất đặc trưng phong cách của bản gốc...",
+        "Foundation generated.": "Đã tạo nền tảng truyện.",
+        "# Audit Drift": "# Sai lệch kiểm tra",
+        "## Audit Drift Correction": "## Điều chỉnh sai lệch kiểm tra",
+      };
+      if (exact[messages.en]) return exact[messages.en];
+      const patterns: ReadonlyArray<readonly [RegExp, string]> = [
+        [/^Step 1: Generating foundation from (\d+) chapters\.\.\.$/, "Bước 1: Đang tạo nền tảng từ $1 chương..."],
+        [/^Step 2: Sequential replay from chapter (\d+)\.\.\.$/, "Bước 2: Đang phát lại tuần tự từ chương $1..."],
+        [/^Analyzing chapter (\d+)\/(\d+): (.+)\.\.\.$/, "Đang phân tích chương $1/$2: $3..."],
+        [/^Done\. (\d+) chapters imported, (.+)\. Next chapter: (\d+)$/, "Hoàn tất. Đã nhập $1 chương, tổng cộng $2. Chương tiếp theo: $3"],
+        [/^Chapter (\d+) is outside its length budget \((.+), actual (\d+)\)\.$/, "Chương $1 nằm ngoài giới hạn độ dài ($2, thực tế $3)."],
+        [/^> Chapter (\d+) audit found the following issues to avoid in the next chapter:$/, "> Kiểm tra chương $1 phát hiện các vấn đề sau cần tránh ở chương tiếp theo:"],
+      ];
+      for (const [pattern, replacement] of patterns) {
+        if (pattern.test(messages.en)) return messages.en.replace(pattern, replacement);
+      }
+      return messages.en;
+    }
+    return language === "zh" ? messages.zh : messages.en;
   }
 
   private async resolveBookLanguage(
@@ -632,13 +654,13 @@ export class PipelineRunner {
   ): string {
     const dimensionLines = review.dimensions
       .map((dimension) => (
-        language === "en"
+        language !== "zh"
           ? `- ${dimension.name} [${dimension.score}]: ${dimension.feedback}`
           : `- ${dimension.name}（${dimension.score}分）：${dimension.feedback}`
       ))
       .join("\n");
 
-    return language === "en"
+    return language !== "zh"
       ? [
           "## Overall Feedback",
           review.overallFeedback,
@@ -1681,7 +1703,7 @@ export class PipelineRunner {
       }
 
       // Update index
-      const downstreamRevisionNotice = language === "en"
+      const downstreamRevisionNotice = language !== "zh"
         ? `[warning] Chapter ${targetChapter} changed; re-review this downstream chapter for continuity.`
         : `[warning] 第${targetChapter}章已重写，请重新检查本章与前文的连续性。`;
       const updatedIndex = index.map((ch) => {
@@ -2807,7 +2829,7 @@ Base the analysis on the text's actual features, not generalities. Support each 
     },
     options: { readonly language: "zh" | "en" | "vi"; readonly reason: string },
   ): string {
-    if (options.language === "en") {
+    if (options.language !== "zh") {
       return [
         "# Style Guide",
         "",
@@ -3338,7 +3360,7 @@ ${matrix}`,
   }
 
   private buildImportReplayStateSeed(language: LengthLanguage): string {
-    if (language === "en") {
+    if (language !== "zh") {
       return [
         "# Current State",
         "",
@@ -3372,7 +3394,7 @@ ${matrix}`,
   }
 
   private buildImportReplayHooksSeed(language: LengthLanguage): string {
-    if (language === "en") {
+    if (language !== "zh") {
       return [
         "# Pending Hooks",
         "",

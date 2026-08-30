@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Bot, FileText, FolderUp, MessageSquare, Radar, RotateCcw, Search, Settings2, Plus, Trash2 } from "lucide-react";
+import { Bell, Bot, FileText, FolderUp, Languages, MessageSquare, Radar, RotateCcw, Search, Settings2, Plus, Trash2 } from "lucide-react";
 import { fetchJson, postApi, putApi, useApi } from "../hooks/use-api";
 import { usePreferencesStore } from "../store/preferences";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { tr } from "../lib/app-language";
+import { setUiLocale, type UiLocale } from "../i18n/ui-locale";
 import {
   buildDetectionConfig,
   buildNotifyChannel,
@@ -101,6 +102,7 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
   const isVi = t("nav.connected") === "Đã kết nối";
   const { data: overridesData, refetch: refetchOverrides } = useApi<{ overrides: Record<string, unknown> }>("/project/model-overrides");
+  const { data: projectData, refetch: refetchProject } = useApi<{ language: UiLocale }>("/project");
   const { data: defaultModelData, refetch: refetchDefaultModel } = useApi<{ service: string | null; defaultModel: string | null }>("/project/default-model");
   const { data: researchSearchData, refetch: refetchResearchSearch } = useApi<{ researchSearch: Partial<ResearchSearchDraft> }>("/project/research-search");
   const { data: notifyData, refetch: refetchNotify } = useApi<{ channels: unknown[] }>("/project/notify");
@@ -108,6 +110,7 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
   const { data: skillsData, refetch: refetchSkills } = useApi<SkillsResponse>("/skills");
   const { data: promptPacksData, refetch: refetchPromptPacks } = useApi<PromptPacksResponse>("/prompt-packs");
   const [defaultService, setDefaultService] = useState("");
+  const [writingLanguage, setWritingLanguage] = useState<UiLocale>("vi");
   const [defaultModel, setDefaultModel] = useState("");
   const [researchSearch, setResearchSearch] = useState<ResearchSearchDraft>({ ...DEFAULT_RESEARCH_SEARCH });
   const [overrideRows, setOverrideRows] = useState<OverrideRow[]>([]);
@@ -132,6 +135,10 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
   const promptList = displayedPromptPacksData?.prompts ?? [];
   const selectedPrompt = promptList.find((prompt) => prompt.id === selectedPromptId) ?? null;
   const promptDirty = Boolean(selectedPrompt && promptDraft !== (selectedPrompt.content ?? ""));
+
+  useEffect(() => {
+    if (projectData?.language) setWritingLanguage(projectData.language);
+  }, [projectData]);
 
   useEffect(() => {
     if (!overridesData) return;
@@ -238,6 +245,42 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
           {notice.message}
         </div>
       )}
+
+      <SettingsCard
+        title={tr("项目语言", "Project language")}
+        description={tr(
+          "作为新书和未绑定书籍会话的默认创作语言。已有书籍可在书籍设置中单独修改。",
+          "Default writing language for new books and sessions not bound to a book. Existing books can override it in book settings.",
+        )}
+        icon={<Languages size={18} />}
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-52 space-y-1">
+            <span className="block text-xs font-semibold text-muted-foreground">{tr("创作语言", "Writing language")}</span>
+            <select
+              value={writingLanguage}
+              onChange={(event) => setWritingLanguage(event.target.value as UiLocale)}
+              className={fieldClass}
+            >
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={saving === "project-language"}
+            onClick={() => runSave("project-language", async () => {
+              await postApi("/project/language", { language: writingLanguage });
+              setUiLocale(writingLanguage);
+              await refetchProject();
+            }, tr("项目语言已保存", "Project language saved"))}
+            className={`rounded-lg px-4 py-2 text-sm font-bold ${c.btnPrimary} disabled:opacity-40`}
+          >
+            {saving === "project-language" ? t("config.saving") : t("config.save")}
+          </button>
+        </div>
+      </SettingsCard>
 
       {/* Chat UI preferences — applied immediately, persisted in this browser's localStorage */}
       <SettingsCard title={t("settings.chatUi")} description={t("settings.chatUiHint")} icon={<MessageSquare size={18} />}>
@@ -553,8 +596,8 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
       </SettingsCard>
 
       <SettingsCard
-        title={isZh ? "联网研究搜索服务" : "Research Search Provider"}
-        description={isZh ? "给 research_web 配置外部搜索 API。未配置时仍可用服务器环境变量 TAVILY_API_KEY 作为兜底。" : "Configure the external search API used by research_web. If unset, the server may still use TAVILY_API_KEY as a fallback."}
+        title={tr("联网研究搜索服务", "Research Search Provider")}
+        description={tr("给 research_web 配置外部搜索 API。未配置时仍可用服务器环境变量 TAVILY_API_KEY 作为兜底。", "Configure the external search API used by research_web. If unset, the server may still use TAVILY_API_KEY as a fallback.")}
         icon={<Search size={18} />}
       >
         <label className="flex items-center gap-2 text-sm">
@@ -563,12 +606,12 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
             checked={researchSearch.enabled}
             onChange={(e) => setResearchSearch((prev) => ({ ...prev, enabled: e.target.checked }))}
           />
-          {isZh ? "启用项目级搜索配置" : "Enable project-level search config"}
+          {tr("启用项目级搜索配置", "Enable project-level search config")}
         </label>
         <Collapse open={researchSearch.enabled}>
           <div className="grid gap-2 pt-1 md:grid-cols-2">
             <label className="space-y-1 text-xs text-muted-foreground">
-              <span>{isZh ? "搜索服务" : "Provider"}</span>
+              <span>{tr("搜索服务", "Provider")}</span>
               <select
                 value={researchSearch.provider}
                 onChange={(e) => setResearchSearch((prev) => ({ ...prev, provider: e.target.value === "custom" ? "custom" : "tavily" }))}
@@ -579,7 +622,7 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
               </select>
             </label>
             <label className="space-y-1 text-xs text-muted-foreground">
-              <span>{isZh ? "API Key 环境变量名" : "API key env var"}</span>
+              <span>{tr("API Key 环境变量名", "API key env var")}</span>
               <input
                 value={researchSearch.apiKeyEnv}
                 onChange={(e) => setResearchSearch((prev) => ({ ...prev, apiKeyEnv: e.target.value }))}
@@ -588,7 +631,7 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
               />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground md:col-span-2">
-              <span>{isZh ? "Base URL（可选，自定义兼容端点）" : "Base URL (optional custom compatible endpoint)"}</span>
+              <span>{tr("Base URL（可选，自定义兼容端点）", "Base URL (optional custom compatible endpoint)")}</span>
               <input
                 value={researchSearch.baseUrl}
                 onChange={(e) => setResearchSearch((prev) => ({ ...prev, baseUrl: e.target.value }))}
@@ -597,12 +640,12 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
               />
             </label>
             <label className="space-y-1 text-xs text-muted-foreground md:col-span-2">
-              <span>{isZh ? "API Key（可选；留空则读环境变量）" : "API key (optional; leave blank to use env var)"}</span>
+              <span>{tr("API Key（可选；留空则读环境变量）", "API key (optional; leave blank to use env var)")}</span>
               <input
                 value={researchSearch.apiKey}
                 onChange={(e) => setResearchSearch((prev) => ({ ...prev, apiKey: e.target.value }))}
                 type="password"
-                placeholder={isZh ? "可直接填 key，或只填环境变量名" : "Paste key, or use env var only"}
+                placeholder={tr("可直接填 key，或只填环境变量名", "Paste key, or use env var only")}
                 className={`${fieldClass} font-mono`}
               />
             </label>

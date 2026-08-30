@@ -320,7 +320,7 @@ function agentCacheKey(projectRoot: string, sessionId: string): string {
 
 function buildAttachmentUserBlock(attachments: ReadonlyArray<AgentSessionAttachment> | undefined, language: string): string {
   if (!attachments?.length) return "";
-  const isEn = language === "en";
+  const isEn = language !== "zh";
   const lines = [
     isEn
       ? "\n\n## Uploaded Files (host-provided, user-authorized)"

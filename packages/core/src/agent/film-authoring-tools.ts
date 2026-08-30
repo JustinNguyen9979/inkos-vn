@@ -22,6 +22,7 @@ import { generateNodeImage, defaultNodeImageDeps, type NodeImageDeps } from "../
 import { appendPromptPackGuidance } from "../prompts/prompt-pack.js";
 import { appendActivatedSkillGuidance } from "../agents/base.js";
 import type { ActivatedSkillGuidance } from "./skill-tool.js";
+import { withVietnameseOutputContract } from "../utils/language.js";
 
 // ---------------------------------------------------------------------------
 // Local helper — textResult is not exported from agent-tools.ts
@@ -233,7 +234,7 @@ const NODE_SYSTEM_ZH = `你是互动影游编剧。根据当前图上下文和�
 const NODE_SYSTEM_EN = `You are an interactive film scriptwriter. Using the current graph context and the instruction, write the requested node's complete scene, dialogue, choices, and image direction. Every choices[].targetNodeId must point to an existing node id. Finish by calling submit_story_node.`;
 
 function nodeSystemPrompt(language: FilmAuthoringLanguage): string {
-  return language === "en" ? NODE_SYSTEM_EN : NODE_SYSTEM_ZH;
+  return language === "zh" ? NODE_SYSTEM_ZH : NODE_SYSTEM_EN;
 }
 
 function graphUpdatedDetails(rev: number, promptId: string, extra: Record<string, unknown> = {}) {
@@ -259,11 +260,11 @@ export function createFillNodeTool(
     async execute(_id, params: Static<typeof FillNodeParams>, signal) {
       const graph = await loadStoryGraph(projectRoot, projectId);
       const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
-      const systemPrompt = await appendPromptPackGuidance(nodeSystemPrompt(language), {
+      const systemPrompt = withVietnameseOutputContract(await appendPromptPackGuidance(nodeSystemPrompt(language), {
         promptId: "interactive-film.script",
         projectRoot,
-      });
-      const userPrompt = language === "en"
+      }), language);
+      const userPrompt = language !== "zh"
         ? `${context}\n\nNode id to fill: ${params.nodeId}\nInstruction: ${params.instruction}`
         : `${context}\n\n要填的节点 id：${params.nodeId}\n指令：${params.instruction}`;
       const node = await deps.submitNode(systemPrompt, userPrompt, params.nodeId, signal);
@@ -295,11 +296,11 @@ export function createReviseNodeTool(
       const graph = await loadStoryGraph(projectRoot, projectId);
       const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
       const current = graph?.nodes.find((n) => n.id === params.nodeId);
-      const systemPrompt = await appendPromptPackGuidance(nodeSystemPrompt(language), {
+      const systemPrompt = withVietnameseOutputContract(await appendPromptPackGuidance(nodeSystemPrompt(language), {
         promptId: "interactive-film.script",
         projectRoot,
-      });
-      const userPrompt = language === "en"
+      }), language);
+      const userPrompt = language !== "zh"
         ? `${context}\n\nNode id to revise: ${params.nodeId}\nCurrent content: ${JSON.stringify(current ?? {})}\nRevision instruction: ${params.instruction}`
         : `${context}\n\n要修改的节点 id：${params.nodeId}\n现有内容：${JSON.stringify(current ?? {})}\n修改指令：${params.instruction}`;
       const node = await deps.submitNode(systemPrompt, userPrompt, params.nodeId, signal);
@@ -353,11 +354,11 @@ export function createDraftStructureTool(
     async execute(_id, params: Static<typeof DraftStructureParams>, signal) {
       const graph = await loadStoryGraph(projectRoot, projectId);
       const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
-      const systemPrompt = await appendPromptPackGuidance(language === "en" ? STRUCT_SYSTEM_EN : STRUCT_SYSTEM_ZH, {
+      const systemPrompt = withVietnameseOutputContract(await appendPromptPackGuidance(language === "zh" ? STRUCT_SYSTEM_ZH : STRUCT_SYSTEM_EN, {
         promptId: "interactive-film.story-graph",
         projectRoot,
-      });
-      const userPrompt = language === "en"
+      }), language);
+      const userPrompt = language !== "zh"
         ? `${context}\n\nSkeleton instruction: ${params.instruction}`
         : `${context}\n\n骨架指令：${params.instruction}`;
       const nodes = await deps.submitStructure(systemPrompt, userPrompt, signal);

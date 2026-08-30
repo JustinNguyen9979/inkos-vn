@@ -87,4 +87,11 @@ describe("analyzeAITells", () => {
     const warningIssues = result.issues.filter((i) => i.severity === "warning");
     expect(warningIssues).toHaveLength(0);
   });
+
+  it("analyzes Vietnamese text with Latin sentence rules and Vietnamese issue copy", () => {
+    const content = "Anh bước ra cửa. Anh nhìn xuống phố. Anh siết chặt tay. Anh quay lại phòng.";
+    const result = analyzeAITells(content, "vi");
+    expect(result.issues.some((issue) => issue.category === "Cấu trúc liệt kê")).toBe(true);
+    expect(JSON.stringify(result.issues)).not.toMatch(/[一-鿿]/);
+  });
 });

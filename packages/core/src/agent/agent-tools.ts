@@ -2684,7 +2684,7 @@ export function createPlayStartTool(
       await store.ensureRun(world.id, runId);
 
       const existingTranscript = await store.readTranscript(world.id, runId);
-      const sceneText = (initialScene?.trim() || (world.language === "en"
+      const sceneText = (initialScene?.trim() || (world.language !== "zh"
         ? [`You enter "${world.title}".`, world.premise || "The scene is set. Make your first move."].join("\n")
         : [`你进入「${world.title}」。`, world.premise || "场景已经就位，等待你的第一个动作。"].join("\n"))).trim();
       const suggestedActions = normalizeSuggestedActions(playPayload?.suggestedActions ?? params.suggestedActions);
@@ -2723,7 +2723,7 @@ export function createPlayStartTool(
 
         if (!graph?.entities?.some((entity) => entity.id === "actor_player")
           || !graph.entities.some((entity) => entity.id !== "actor_player")) {
-          throw new Error(world.language === "en"
+          throw new Error(world.language !== "zh"
             ? "Play opening state is incomplete: no usable player/world graph was created."
             : "互动世界开场状态不完整：没有生成可用的玩家与世界图谱。");
         }
@@ -2923,12 +2923,12 @@ export function createPlayEditTool(
       const world = await store.loadWorld(worldId);
       if (!world) {
         return textResult(
-          language === "en"
+          language !== "zh"
             ? "There is no interactive world to edit yet. Start one with play_start first."
             : "还没有可编辑的互动世界。先用 play_start 开一局。",
         );
       }
-      const isZh = (world.language ?? "zh") !== "en";
+      const isZh = (world.language ?? "zh") === "zh";
 
       const patch: Parameters<PlayStore["updateWorld"]>[1] = {};
       const nextWorldContract = mergeContract(
@@ -3028,7 +3028,7 @@ export function createPlayStepTool(
       const world = await store.loadWorld(worldId);
       if (!world) {
         return textResult(
-          options.language === "en"
+          options.language === "en" || options.language === "vi"
             ? "There is no interactive world to advance yet. Start one with play_start first."
             : "还没有可推进的互动世界。先用 play_start 开一局。",
         );
@@ -3130,12 +3130,12 @@ export function createPlayReviseTool(
       const world = await store.loadWorld(worldId);
       if (!world) {
         return textResult(
-          options.language === "en"
+          options.language === "en" || options.language === "vi"
             ? "There is no interactive world to redo yet. Start one with play_start first."
             : "还没有可重做的互动世界。先用 play_start 开一局。",
         );
       }
-      const isZh = (world.language ?? "zh") !== "en";
+      const isZh = (world.language ?? "zh") === "zh";
       const activatedSkills = resolveProductionToolSkills(options);
       let runner: ({
         regenerateLastTurn(input?: string): Promise<PlayReplayResult>;

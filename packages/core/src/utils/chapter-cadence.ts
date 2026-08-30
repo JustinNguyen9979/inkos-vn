@@ -180,7 +180,7 @@ function analyzeTitlePressure(
 }
 
 function extractTitleTokens(title: string, language: "zh" | "en" | "vi"): string[] {
-  if (language === "en") {
+  if (language !== "zh") {
     const words = title.match(/[a-z]{4,}/gi) ?? [];
     return [...new Set(
       words

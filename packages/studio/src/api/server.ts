@@ -150,6 +150,10 @@ import {
 
 type StudioLanguage = "zh" | "en" | "vi";
 
+function isStudioLanguage(value: unknown): value is StudioLanguage {
+  return value === "zh" || value === "en" || value === "vi";
+}
+
 function normalizeStudioLanguage(value: unknown): StudioLanguage {
   return value === "vi" ? "vi" : value === "en" ? "en" : "zh";
 }
@@ -4132,6 +4136,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.put("/api/v1/project", async (c) => {
     const updates = await c.req.json<Record<string, unknown>>();
+    if (updates.language !== undefined && !isStudioLanguage(updates.language)) {
+      return c.json({ error: "language must be zh, en, or vi" }, 400);
+    }
     const configPath = join(root, "inkos.json");
     try {
       const raw = await readFile(configPath, "utf-8");
@@ -5318,7 +5325,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Language setup ---
 
   app.post("/api/v1/project/language", async (c) => {
-    const { language } = await c.req.json<{ language: "zh" | "en" | "vi" }>();
+    const { language } = await c.req.json<{ language?: unknown }>();
+    if (!isStudioLanguage(language)) {
+      return c.json({ error: "language must be zh, en, or vi" }, 400);
+    }
     const configPath = join(root, "inkos.json");
     try {
       const raw = await readFile(configPath, "utf-8");
@@ -5739,6 +5749,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       status?: string;
       language?: string;
     }>();
+    if (updates.language !== undefined && !isStudioLanguage(updates.language)) {
+      return c.json({ error: "language must be zh, en, or vi" }, 400);
+    }
     try {
       const book = await state.loadBookConfig(id);
       const updated = {

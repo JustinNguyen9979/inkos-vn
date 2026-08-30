@@ -113,13 +113,90 @@ function resolveRuntimeLanguage(request: InteractionRequest): RuntimeLanguage {
   return request.language === "vi" ? "vi" : request.language === "en" ? "en" : "zh";
 }
 
-function localize<T>(language: RuntimeLanguage, messages: { zh: T; en: T }): T {
-  return language === "en" ? messages.en : messages.zh;
+const VI_RUNTIME_COPY: Readonly<Record<string, string>> = {
+  "preparing chapter inputs": "đang chuẩn bị dữ liệu chương",
+  "creating book foundation": "đang tạo nền tảng truyện",
+  "exporting book artifacts": "đang xuất tác phẩm",
+  "rewriting chapter": "đang viết lại chương",
+  "revising chapter": "đang chỉnh sửa chương",
+  "applying project edit": "đang áp dụng chỉnh sửa dự án",
+  "paused by user": "đã được người dùng tạm dừng",
+  "Execution finished. Choose the next action explicitly.": "Đã thực thi xong. Hãy chọn rõ thao tác tiếp theo.",
+  "Execution finished. Waiting for your next decision.": "Đã thực thi xong, đang chờ quyết định tiếp theo của anh.",
+  "waiting for your next decision": "đang chờ quyết định tiếp theo của anh",
+  "There is no active book draft yet. Start by telling me what you want to write.": "Hiện chưa có bản nháp truyện. Hãy bắt đầu bằng cách cho em biết anh muốn viết gì.",
+  "Book creation is not implemented in the interaction runtime yet.": "Runtime tương tác chưa hỗ trợ tạo truyện.",
+  "Book creation requires a title.": "Cần có tên truyện để tạo truyện.",
+  "Create-book tool did not return a book id.": "Công cụ tạo truyện không trả về ID truyện.",
+  "Discarded the current book draft.": "Đã bỏ bản nháp truyện hiện tại.",
+  "No books found in this project.": "Không tìm thấy truyện nào trong dự án này.",
+  "Book selection requires a book id.": "Cần cung cấp ID truyện để chọn truyện.",
+  "completed": "đã hoàn tất",
+  "No active book is bound to the interaction session.": "Phiên tương tác chưa được gắn với truyện nào.",
+  "Chapter number is required for chapter revision.": "Cần có số chương để chỉnh sửa chương.",
+  "Chapter patch requires chapter number, target text, and replacement text.": "Sửa đoạn văn cần số chương, nội dung đích và nội dung thay thế.",
+  "Whole-chapter replacement requires chapter number and fullText.": "Thay toàn bộ chương cần số chương và nội dung đầy đủ.",
+  "Entity rename requires old and new values.": "Đổi tên thực thể cần giá trị cũ và mới.",
+  "Focus update requires instruction content.": "Cập nhật trọng tâm cần có nội dung hướng dẫn.",
+  "Author intent update requires instruction content.": "Cập nhật ý định tác giả cần có nội dung hướng dẫn.",
+  "Truth-file edit requires a file name and content.": "Chỉnh sửa tệp dữ kiện cần tên tệp và nội dung.",
+  "Book export is not implemented in the interaction runtime yet.": "Runtime tương tác chưa hỗ trợ xuất tác phẩm.",
+  "ready to continue": "sẵn sàng tiếp tục",
+  "I’m here. No active book is bound yet. Open a book, list books, or describe what you want to write.": "Em đây. Hiện chưa gắn truyện nào. Anh có thể mở một truyện, xem danh sách truyện hoặc mô tả nội dung muốn viết.",
+};
+
+function translateRuntimeEnglish(english: string): string {
+  const exact = VI_RUNTIME_COPY[english];
+  if (exact) return exact;
+  const replacements: ReadonlyArray<readonly [RegExp, string]> = [
+    [/^handling (.+)$/, "đang xử lý $1"],
+    [/^Started (.+)\.$/, "Đã bắt đầu $1."],
+    [/^Created (.+)\.$/, "Đã tạo $1."],
+    [/^Listed (\d+) book\(s\)\.$/, "Đã liệt kê $1 truyện."],
+    [/^Books: (.+)$/, "Danh sách truyện: $1"],
+    [/^Book "(.+)" not found in this project\.$/, "Không tìm thấy truyện “$1” trong dự án này."],
+    [/^Bound active book to (.+)\.$/, "Đã chuyển sang truyện $1."],
+    [/^Active book: (.+)$/, "Truyện hiện tại: $1"],
+    [/^Completed write_next for (.+); waiting for your next decision\.$/, "Đã viết xong chương tiếp theo cho $1; đang chờ quyết định tiếp theo của anh."],
+    [/^Completed write_next for (.+)\.$/, "Đã viết xong chương tiếp theo cho $1."],
+    [/^Completed (revise_chapter|rewrite_chapter) for (.+); waiting for your next decision\.$/, "Đã chỉnh sửa chương cho $2; đang chờ quyết định tiếp theo của anh."],
+    [/^Completed (revise_chapter|rewrite_chapter) for (.+)\.$/, "Đã chỉnh sửa chương cho $2."],
+    [/^Patched chapter (\d+) for (.+?)(; waiting for your next decision)?\.$/, "Đã sửa đoạn văn ở chương $1 của $2$3."],
+    [/^Replaced chapter (\d+) for (.+?)(; waiting for your next decision)?\.$/, "Đã thay nội dung chương $1 của $2$3."],
+    [/^Renamed (.+) to (.+) in (.+?)(; waiting for your next decision)?\.$/, "Đã đổi tên $1 thành $2 trong $3$4."],
+    [/^Updated current focus for (.+?)(; waiting for your next decision)?\.$/, "Đã cập nhật trọng tâm hiện tại cho $1$2."],
+    [/^Updated author intent for (.+?)(; waiting for your next decision)?\.$/, "Đã cập nhật ý định tác giả cho $1$2."],
+    [/^Updated (.+) for (.+?)(; waiting for your next decision)?\.$/, "Đã cập nhật $1 cho $2$3."],
+    [/^Exported (.+)\.$/, "Đã xuất $1."],
+    [/^Paused (.+)\.$/, "Đã tạm dừng $1."],
+    [/^Resumed (.+)\.$/, "Đã tiếp tục $1."],
+    [/^I’m here\. Active book is (.+?)\.[\s\S]*$/, "Em đây. Truyện hiện tại là $1. Anh có thể yêu cầu viết tiếp, chỉnh sửa chương, viết lại, đổi trọng tâm hoặc kiểm tra lý do tiến trình dừng."],
+    [/^Current failure context: (.+) is at (.+)\.$/, "Ngữ cảnh lỗi hiện tại: $1 đang ở bước $2."],
+    [/^Current status: (.+) is at (.+)\.$/, "Trạng thái hiện tại: $1 đang ở bước $2."],
+    [/^Intent "(.+)" is not implemented in the interaction runtime yet\.$/, "Runtime tương tác chưa hỗ trợ ý định “$1”."],
+  ];
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(english)) return english.replace(pattern, replacement)
+      .replaceAll("; waiting for your next decision", "; đang chờ quyết định tiếp theo của anh");
+  }
+  return english;
+}
+
+function localize(language: RuntimeLanguage, messages: { zh: string; en: string }): string {
+  if (language === "vi") return translateRuntimeEnglish(messages.en);
+  return language === "zh" ? messages.zh : messages.en;
 }
 
 function localizeMode(mode: AutomationMode, language: RuntimeLanguage): string {
   if (language === "en") {
     return mode;
+  }
+  if (language === "vi") {
+    return {
+      auto: "tự động",
+      semi: "bán tự động",
+      manual: "thủ công",
+    }[mode] ?? mode;
   }
 
   return {
@@ -133,8 +210,21 @@ function renderCreationDraft(
   draft: NonNullable<InteractionSession["creationDraft"]>,
   language: RuntimeLanguage,
 ): string {
-  const lines = language === "en"
+  const lines = language === "vi"
     ? [
+        "# Bản nháp truyện hiện tại",
+        draft.title ? `- Tên truyện: ${draft.title}` : undefined,
+        draft.genre ? `- Thể loại: ${draft.genre}` : undefined,
+        draft.platform ? `- Nền tảng: ${draft.platform}` : undefined,
+        draft.worldPremise ? `- Thế giới: ${draft.worldPremise}` : undefined,
+        draft.protagonist ? `- Nhân vật chính: ${draft.protagonist}` : undefined,
+        draft.conflictCore ? `- Xung đột cốt lõi: ${draft.conflictCore}` : undefined,
+        draft.volumeOutline ? `- Hướng phát triển: ${draft.volumeOutline}` : undefined,
+        draft.blurb ? `- Giới thiệu: ${draft.blurb}` : undefined,
+        draft.nextQuestion ? `- Tiếp theo: ${draft.nextQuestion}` : undefined,
+      ]
+    : language === "en"
+      ? [
         "# Current Book Draft",
         draft.title ? `- Title: ${draft.title}` : undefined,
         draft.genre ? `- Genre: ${draft.genre}` : undefined,
@@ -146,7 +236,7 @@ function renderCreationDraft(
         draft.blurb ? `- Blurb: ${draft.blurb}` : undefined,
         draft.nextQuestion ? `- Next: ${draft.nextQuestion}` : undefined,
       ]
-    : [
+      : [
         "# 当前创作草案",
         draft.title ? `- 书名：${draft.title}` : undefined,
         draft.genre ? `- 题材：${draft.genre}` : undefined,

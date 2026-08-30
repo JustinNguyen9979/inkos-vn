@@ -6,6 +6,13 @@ import {
 } from "../state/state-projections.js";
 
 describe("state projections", () => {
+  it("does not render Chinese control labels for Vietnamese state files", () => {
+    const markdown = renderCurrentStateProjection({ chapter: 1, facts: [] }, "vi");
+    expect(markdown).toContain("# Current State");
+    expect(markdown).toContain("| Current Chapter | 1 |");
+    expect(markdown).not.toMatch(/[一-鿿]/);
+  });
+
   it("renders pending hooks projection with deterministic English ordering", () => {
     const markdown = renderHooksProjection({
       hooks: [

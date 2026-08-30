@@ -79,6 +79,24 @@ describe("film authoring LLM tools language switch", () => {
     expect(userPrompt).toContain("要填的节点 id：n1");
   });
 
+  it("fill_node with language vi enforces Vietnamese output", async () => {
+    let systemPrompt = "";
+    let userPrompt = "";
+    const tool = createFillNodeTool(root, "p", filmDeps({
+      submitNode: async (system, user, nodeId) => {
+        systemPrompt = system;
+        userPrompt = user;
+        return { ...node, id: nodeId };
+      },
+    }), "vi");
+
+    await tool.execute("call-vi", { nodeId: "n1", instruction: "Viết cảnh lựa chọn" } as never);
+
+    expect(systemPrompt).toContain("You are an interactive film scriptwriter");
+    expect(systemPrompt).toContain("Vietnamese language and prose contract (mandatory)");
+    expect(userPrompt).toContain("Instruction: Viết cảnh lựa chọn");
+  });
+
   it("revise_node with language en sends the English node system prompt and user prompt", async () => {
     let systemPrompt = "";
     let userPrompt = "";

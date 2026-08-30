@@ -30,6 +30,10 @@ interface TuiAgentRoute {
   readonly localResponse?: string;
 }
 
+function tuiText(language: "zh" | "en" | "vi", zh: string, en: string, vi: string): string {
+  return language === "vi" ? vi : language === "en" ? en : zh;
+}
+
 export async function processTuiAgentInput(params: {
   readonly projectRoot: string;
   readonly input: string;
@@ -174,7 +178,7 @@ export function resolveTuiAgentRoute(
   if (/^\/confirm$/i.test(input)) {
     const pending = session.pendingProposedAction;
     if (!pending) {
-      return localConfirmationRoute(currentKind, input, language === "en" ? "There is no pending action." : "没有待确认的动作。");
+      return localConfirmationRoute(currentKind, input, tuiText(language, "没有待确认的动作。", "There is no pending action.", "Không có thao tác nào đang chờ xác nhận."));
     }
     const requestedIntent = RequestedIntentSchema.safeParse(pending.action);
     const actionPayload = pending.actionPayload === undefined
@@ -184,9 +188,7 @@ export function resolveTuiAgentRoute(
       return localConfirmationRoute(
         currentKind,
         input,
-        language === "en"
-          ? "This pending action is no longer valid. Please propose it again."
-          : "这条待确认动作已失效，请重新提出需求。",
+        tuiText(language, "这条待确认动作已失效，请重新提出需求。", "This pending action is no longer valid. Please propose it again.", "Thao tác đang chờ không còn hợp lệ. Vui lòng gửi lại yêu cầu."),
       );
     }
     return {
@@ -207,46 +209,54 @@ export function resolveTuiAgentRoute(
       currentKind,
       input,
       session.pendingProposedAction
-        ? language === "en" ? "Pending action cancelled." : "已取消待确认动作。"
-        : language === "en" ? "There is no pending action." : "没有待确认的动作。",
+        ? tuiText(language, "已取消待确认动作。", "Pending action cancelled.", "Đã hủy thao tác đang chờ.")
+        : tuiText(language, "没有待确认的动作。", "There is no pending action.", "Không có thao tác nào đang chờ xác nhận."),
     );
   }
 
   const newMatch = input.match(/^\/new(?:\s+([\s\S]+))?$/i);
   if (newMatch) {
-    return entryRoute("book-create", commandBody(newMatch[1], language === "en"
-      ? "I want to create a new book. Confirm the direction with me first."
-      : "我想创建一本新书，请先和我确认方向。"));
+    return entryRoute("book-create", commandBody(newMatch[1], tuiText(language,
+      "我想创建一本新书，请先和我确认方向。",
+      "I want to create a new book. Confirm the direction with me first.",
+      "Tôi muốn tạo một truyện mới. Hãy xác nhận hướng sáng tác với tôi trước.",
+    )));
   }
 
   const shortMatch = input.match(/^\/short(?:\s+([\s\S]+))?$/i);
   if (shortMatch) {
-    return entryRoute("short", commandBody(shortMatch[1], language === "en"
-      ? "I want to create an InkOS Short. Confirm the direction with me first."
-      : "我想做 InkOS Short，请先和我确认方向。"));
+    return entryRoute("short", commandBody(shortMatch[1], tuiText(language,
+      "我想做 InkOS Short，请先和我确认方向。",
+      "I want to create an InkOS Short. Confirm the direction with me first.",
+      "Tôi muốn tạo một truyện ngắn InkOS. Hãy xác nhận hướng sáng tác với tôi trước.",
+    )));
   }
 
   const coverMatch = input.match(/^\/cover(?:\s+([\s\S]+))?$/i);
   if (coverMatch) {
-    return entryRoute("short", commandBody(coverMatch[1], language === "en"
-      ? "I want to create or redo a cover. Confirm the target with me first."
-      : "我想生成或重做封面，请先和我确认目标。"));
+    return entryRoute("short", commandBody(coverMatch[1], tuiText(language,
+      "我想生成或重做封面，请先和我确认目标。",
+      "I want to create or redo a cover. Confirm the target with me first.",
+      "Tôi muốn tạo hoặc làm lại bìa. Hãy xác nhận mục tiêu với tôi trước.",
+    )));
   }
 
   const playMatch = input.match(/^\/play(?:\s+(open|guided))?(?:\s+([\s\S]+))?$/i);
   if (playMatch) {
     const playMode = playMatch[1]?.toLowerCase() as PlayMode | undefined;
     return {
-      ...entryRoute("play", commandBody(playMatch[2], language === "en"
-        ? "I want to start an interactive world. Confirm the opening with me first."
-        : "我想启动互动世界，请先和我确认开局。")),
+      ...entryRoute("play", commandBody(playMatch[2], tuiText(language,
+        "我想启动互动世界，请先和我确认开局。",
+        "I want to start an interactive world. Confirm the opening with me first.",
+        "Tôi muốn bắt đầu một thế giới tương tác. Hãy xác nhận phần mở đầu với tôi trước.",
+      ))),
       ...(playMode ? { playMode } : {}),
     };
   }
 
   if (/^\/write$/i.test(input)) {
     return {
-      userMessage: language === "en" ? "Write the next chapter" : "写下一章",
+      userMessage: tuiText(language, "写下一章", "Write the next chapter", "Viết chương tiếp theo"),
       sessionKind: activeBookId ? "book" : currentKind,
       actionSource: "slash",
       requestedIntent: "write_next",
@@ -323,6 +333,9 @@ function extractProposedAction(messages: ReadonlyArray<unknown>): PendingPropose
 }
 
 function formatProposedAction(action: PendingProposedAction, language: "zh" | "en" | "vi"): string {
+  if (language === "vi") {
+    return [action.title ?? "Xác nhận thao tác", action.summary ?? "Xác nhận để tiếp tục.", "", action.instruction, "", "Nhập /confirm để tiếp tục hoặc /cancel để hủy."].join("\n");
+  }
   return language === "en"
     ? [action.title ?? "Confirm action", action.summary ?? "Confirm to continue.", "", action.instruction, "", "Type /confirm to continue, or /cancel to cancel."].join("\n")
     : [action.title ?? "确认执行", action.summary ?? "确认后继续执行。", "", action.instruction, "", "输入 /confirm 继续，或 /cancel 取消。"].join("\n");

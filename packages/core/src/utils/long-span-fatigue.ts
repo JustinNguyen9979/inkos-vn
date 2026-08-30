@@ -215,7 +215,7 @@ function buildChapterTypeIssue(
   }
   const { repeatedType, streak } = cadence.scenePressure;
 
-  if (language === "en") {
+  if (language !== "zh") {
     return {
       severity: "warning",
       category: "Pacing Monotony",
@@ -241,7 +241,7 @@ function buildMoodIssue(
   }
   const { highTensionStreak, recentMoods } = cadence.moodPressure;
 
-  if (language === "en") {
+  if (language !== "zh") {
     return {
       severity: "warning",
       category: "Mood Monotony",
@@ -267,7 +267,7 @@ function buildTitleIssue(
   }
   const { repeatedToken, count } = cadence.titlePressure;
 
-  if (language === "en") {
+  if (language !== "zh") {
     return {
       severity: "warning",
       category: "Title Collapse",
@@ -341,7 +341,7 @@ function buildSentencePatternIssue(
   const sample = summarizeSentence(sentences[2]!, language);
   const pairText = similarities.map((value) => value.toFixed(2)).join("/");
 
-  if (language === "en") {
+  if (language !== "zh") {
     const category = boundary === "opening" ? "Opening Pattern Repetition" : "Ending Pattern Repetition";
     const position = boundary === "opening" ? "openings" : "endings";
     return {
@@ -459,7 +459,7 @@ function extractBoundarySentence(content: string, boundary: "opening" | "ending"
 }
 
 function normalizeSentence(sentence: string, language: "zh" | "en" | "vi"): string {
-  if (language === "en") {
+  if (language !== "zh") {
     return sentence
       .toLowerCase()
       .replace(ENGLISH_PUNCTUATION, "")
@@ -472,7 +472,7 @@ function normalizeSentence(sentence: string, language: "zh" | "en" | "vi"): stri
 }
 
 function summarizeSentence(sentence: string, language: "zh" | "en" | "vi"): string {
-  if (language === "en") {
+  if (language !== "zh") {
     const words = sentence
       .toLowerCase()
       .replace(/[^a-z0-9\s]+/gi, " ")
