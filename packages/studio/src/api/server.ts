@@ -5730,8 +5730,60 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = c.req.param("id");
     const bookDir = state.bookDir(id);
     try {
+      const sessions = await listBookSessions(root, id);
+      for (const session of sessions) {
+        const controller = await findRunningTaskController(session.sessionId);
+        controller?.abort();
+        abortAgentSession(root, session.sessionId);
+      }
+
+      const deadline = Date.now() + 5_000;
+      while (
+        sessions.some((session) => reservedProductionSessions.has(session.sessionId))
+        && Date.now() < deadline
+      ) {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 25));
+      }
+      if (sessions.some((session) => reservedProductionSessions.has(session.sessionId))) {
+        const language = await currentProjectLanguage();
+        const message = language === "vi"
+          ? "Không thể xóa quyển vì tác vụ viết chưa dừng hoàn toàn. Hãy bấm Dừng rồi thử lại."
+          : pick(
+            language,
+            "写作任务尚未完全停止，无法删除书籍。请先停止任务后重试。",
+            "The writing task has not stopped yet, so the book cannot be deleted. Stop it and retry.",
+          );
+        return c.json({ error: { code: "BOOK_BUSY", message } }, 409);
+      }
+
+      let releaseDeleteLock: (() => Promise<void>) | undefined;
+      try {
+        releaseDeleteLock = await state.acquireBookLock(id);
+      } catch (lockError) {
+        if ((lockError as { code?: unknown } | undefined)?.code === "BOOK_BUSY") {
+          const language = await currentProjectLanguage();
+          const message = language === "vi"
+            ? "Quyển đang được ghi bởi một tác vụ khác. Hãy dừng tác vụ hoặc chờ hoàn tất rồi thử lại."
+            : pick(
+              language,
+              "书籍正在被另一个任务写入。请停止任务或等待完成后重试。",
+              "The book is being written by another task. Stop it or wait for it to finish, then retry.",
+            );
+          return c.json({ error: { code: "BOOK_BUSY", message } }, 409);
+        }
+        throw lockError;
+      }
+
       const { rm } = await import("node:fs/promises");
-      await rm(bookDir, { recursive: true, force: true });
+      try {
+        await Promise.all(sessions.flatMap((session) => [
+          deleteBookSession(root, session.sessionId),
+          deleteStudioTaskSnapshot(root, session.sessionId),
+        ]));
+        await rm(bookDir, { recursive: true, force: true });
+      } finally {
+        await releaseDeleteLock();
+      }
       broadcast("book:deleted", { bookId: id });
       return c.json({ ok: true, bookId: id });
     } catch (e) {
@@ -5744,6 +5796,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.put("/api/v1/books/:id", async (c) => {
     const id = c.req.param("id");
     const updates = await c.req.json<{
+      title?: string;
       chapterWordCount?: number;
       targetChapters?: number;
       status?: string;
@@ -5752,10 +5805,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (updates.language !== undefined && !isStudioLanguage(updates.language)) {
       return c.json({ error: "language must be zh, en, or vi" }, 400);
     }
+    const nextTitle = updates.title?.trim();
+    if (updates.title !== undefined && !nextTitle) {
+      return c.json({ error: "title must not be empty" }, 400);
+    }
     try {
       const book = await state.loadBookConfig(id);
       const updated = {
         ...book,
+        ...(nextTitle !== undefined ? { title: nextTitle } : {}),
         ...(updates.chapterWordCount !== undefined ? { chapterWordCount: Number(updates.chapterWordCount) } : {}),
         ...(updates.targetChapters !== undefined ? { targetChapters: Number(updates.targetChapters) } : {}),
         ...(updates.status !== undefined ? { status: updates.status as typeof book.status } : {}),
@@ -5763,6 +5821,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         updatedAt: new Date().toISOString(),
       };
       await state.saveBookConfig(id, updated);
+      const summary = await loadStudioBookListSummary(state, id).catch(() => undefined);
+      broadcast("book:updated", { bookId: id, ...(summary ? { book: summary } : {}) });
       return c.json({ ok: true, book: updated });
     } catch (e) {
       return c.json({ error: String(e) }, 500);

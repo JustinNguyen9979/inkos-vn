@@ -7,6 +7,7 @@ describe("STUDIO_SSE_EVENTS", () => {
     expect(STUDIO_SSE_EVENTS).toEqual(expect.arrayContaining([
       "book:creating",
       "book:created",
+      "book:updated",
       "book:deleted",
       "book:error",
       "write:start",

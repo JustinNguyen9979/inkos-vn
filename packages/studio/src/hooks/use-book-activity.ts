@@ -17,6 +17,7 @@ const BOOK_REFRESH_EVENTS = new Set([
 
 const BOOK_COLLECTION_REFRESH_EVENTS = new Set([
   "book:created",
+  "book:updated",
   "book:deleted",
   "book:error",
   "write:complete",
@@ -160,7 +161,7 @@ export function applyBookCollectionEvent(
 ): ReadonlyArray<SidebarBookSummary> | null {
   if (!message) return null;
 
-  if (message.event === "book:created") {
+  if (message.event === "book:created" || message.event === "book:updated") {
     const book = getBookSummary(message);
     if (!book) return null;
     const existingIndex = books.findIndex((candidate) => candidate.id === book.id);

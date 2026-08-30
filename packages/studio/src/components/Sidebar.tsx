@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApi } from "../hooks/use-api";
+import { fetchJson, useApi } from "../hooks/use-api";
 import type { SSEMessage } from "../hooks/use-sse";
 import { applyBookCollectionEvent, shouldRefetchBookCollections, shouldRefetchDaemonStatus } from "../hooks/use-book-activity";
 import type { TFunction } from "../hooks/use-i18n";
@@ -139,9 +139,17 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const renameSession = useChatStore((s) => s.renameSession);
   const deleteSession = useChatStore((s) => s.deleteSession);
   const setInput = useChatStore((s) => s.setInput);
-  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; currentTitle: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<
+    | { kind: "session"; sessionId: string; currentTitle: string }
+    | { kind: "book"; bookId: string; currentTitle: string }
+    | null
+  >(null);
   const [renameValue, setRenameValue] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<{ sessionId: string; title: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "session"; sessionId: string; title: string }
+    | { kind: "book"; bookId: string; title: string }
+    | null
+  >(null);
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
   const [projectChatExpanded, setProjectChatExpanded] = useState(true);
   const [myBooksExpanded, setMyBooksExpanded] = useState(true);
@@ -343,14 +351,43 @@ export function Sidebar({ nav, activePage, sse, t }: {
     if (!renameTarget) return;
     const nextTitle = renameValue.trim();
     if (!nextTitle) return;
-    await renameSession(renameTarget.sessionId, nextTitle);
+    if (renameTarget.kind === "session") {
+      await renameSession(renameTarget.sessionId, nextTitle);
+    } else {
+      await fetchJson(`/books/${encodeURIComponent(renameTarget.bookId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      mutateBooks((current) => current ? {
+        books: current.books.map((book) => book.id === renameTarget.bookId
+          ? { ...book, title: nextTitle }
+          : book),
+      } : current);
+    }
     setRenameTarget(null);
     setRenameValue("");
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    await deleteSession(deleteTarget.sessionId);
+    if (deleteTarget.kind === "session") {
+      await deleteSession(deleteTarget.sessionId);
+    } else {
+      await fetchJson(`/books/${encodeURIComponent(deleteTarget.bookId)}`, { method: "DELETE" });
+      await Promise.all(
+        (sessionsByBook[deleteTarget.bookId] ?? []).map((session) => deleteSession(session.sessionId)),
+      );
+      mutateBooks((current) => current ? {
+        books: current.books.filter((book) => book.id !== deleteTarget.bookId),
+      } : current);
+      setExpandedBooks((current) => {
+        const next = new Set(current);
+        next.delete(deleteTarget.bookId);
+        return next;
+      });
+      if (activePage === `book:${deleteTarget.bookId}`) nav.toDashboard();
+    }
     setDeleteTarget(null);
   };
 
@@ -457,6 +494,33 @@ export function Sidebar({ nav, activePage, sse, t }: {
                       <FolderOpen size={14} className="shrink-0 text-muted-foreground/60" />
                       <span className="truncate flex-1 text-left">{book.title}</span>
                     </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        aria-label={`${tr("管理书籍", "Manage book")}: ${book.title}`}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 group-hover/book:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+                      >
+                        <MoreHorizontal size={14} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="right" align="start" className="w-44">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setRenameTarget({ kind: "book", bookId: book.id, currentTitle: book.title });
+                            setRenameValue(book.title);
+                          }}
+                        >
+                          <Pencil size={14} />
+                          <span>{tr("改名", "Rename")}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setDeleteTarget({ kind: "book", bookId: book.id, title: book.title })}
+                        >
+                          <Trash2 size={14} />
+                          <span>{tr("删除整本书", "Delete entire book")}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   {/* 展开后才显示 session 列表 + 新建按钮 */}
@@ -494,7 +558,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                               <DropdownMenuContent side="right" align="start" className="w-36">
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    setRenameTarget({ sessionId: session.sessionId, currentTitle: label });
+                                    setRenameTarget({ kind: "session", sessionId: session.sessionId, currentTitle: label });
                                     setRenameValue(session.title ?? "");
                                   }}
                                 >
@@ -504,7 +568,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   variant="destructive"
-                                  onClick={() => setDeleteTarget({ sessionId: session.sessionId, title: label })}
+                                  onClick={() => setDeleteTarget({ kind: "session", sessionId: session.sessionId, title: label })}
                                 >
                                   <Trash2 size={14} />
                                   <span>{tr("删除", "Delete")}</span>
@@ -619,7 +683,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                           <DropdownMenuContent side="right" align="start" className="w-36">
                             <DropdownMenuItem
                               onClick={() => {
-                                setRenameTarget({ sessionId: session.sessionId, currentTitle: label });
+                                setRenameTarget({ kind: "session", sessionId: session.sessionId, currentTitle: label });
                                 setRenameValue(session.title ?? "");
                               }}
                             >
@@ -629,7 +693,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
-                              onClick={() => setDeleteTarget({ sessionId: session.sessionId, title: label })}
+                              onClick={() => setDeleteTarget({ kind: "session", sessionId: session.sessionId, title: label })}
                             >
                               <Trash2 size={14} />
                               <span>{tr("删除", "Delete")}</span>
@@ -764,10 +828,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
           className="sm:max-w-[360px] p-4 gap-3"
         >
           <DialogHeader className="space-y-0 gap-0">
-            <DialogTitle className="font-sans text-sm font-medium">{tr("重命名会话", "Rename Session")}</DialogTitle>
+            <DialogTitle className="font-sans text-sm font-medium">
+              {renameTarget?.kind === "book" ? tr("重命名书籍", "Rename Book") : tr("重命名会话", "Rename Session")}
+            </DialogTitle>
           </DialogHeader>
           <input
-            id="session-rename-input"
+            id="sidebar-rename-input"
             autoFocus
             value={renameValue}
             onChange={(event) => setRenameValue(event.target.value)}
@@ -805,11 +871,16 @@ export function Sidebar({ nav, activePage, sse, t }: {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={tr("删除会话", "Delete Session")}
-        message={tr(
-          `确认删除“${deleteTarget?.title ?? ""}”吗？该操作只删除这条会话，不影响书籍内容。`,
-          `Delete "${deleteTarget?.title ?? ""}"? This only removes the session; the book content is not affected.`,
-        )}
+        title={deleteTarget?.kind === "book" ? tr("删除整本书", "Delete entire book") : tr("删除会话", "Delete Session")}
+        message={deleteTarget?.kind === "book"
+          ? `${tr(
+            "所有章节、设定和会话都会被永久删除，且无法恢复。",
+            "All chapters, settings, and sessions will be permanently removed. This cannot be undone.",
+          )}\n\n"${deleteTarget.title}"`
+          : `${tr(
+            "该操作只删除这条会话，不影响书籍内容。",
+            "This only removes the session; the book content is not affected.",
+          )}\n\n"${deleteTarget?.title ?? ""}"`}
         confirmLabel={tr("删除", "Delete")}
         cancelLabel={tr("取消", "Cancel")}
         variant="danger"

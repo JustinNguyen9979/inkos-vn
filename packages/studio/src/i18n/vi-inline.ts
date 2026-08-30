@@ -6,6 +6,11 @@
  * future merges small and predictable.
  */
 const VI_INLINE: Readonly<Record<string, string>> = {
+  "Manage book": "Quản lý quyển",
+  "Rename Book": "Đổi tên quyển",
+  "Delete entire book": "Xóa toàn bộ quyển",
+  "All chapters, settings, and sessions will be permanently removed. This cannot be undone.": "Tất cả chương, thiết lập và phiên làm việc sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.",
+  "This only removes the session; the book content is not affected.": "Thao tác này chỉ xóa phiên làm việc, không ảnh hưởng đến nội dung quyển.",
   "File does not exist": "Tệp không tồn tại",
   "View image": "Xem ảnh",
   "Collapse details": "Thu gọn chi tiết",

@@ -25,6 +25,7 @@ const deleteLatestChapterMock = vi.fn();
 const saveChapterIndexMock = vi.fn();
 const loadChapterIndexMock = vi.fn();
 const loadBookConfigMock = vi.fn();
+const saveBookConfigMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
 const runWorkerAgentMock = vi.fn();
@@ -219,6 +220,10 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
       return await loadBookConfigMock(bookId) as never;
     }
 
+    async saveBookConfig(bookId: string, config: unknown): Promise<void> {
+      await saveBookConfigMock(bookId, config);
+    }
+
     async loadChapterIndex(bookId: string): Promise<[]> {
       return (await loadChapterIndexMock(bookId)) as [];
     }
@@ -390,6 +395,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     tryParseBookRulesFrontmatter: actual.tryParseBookRulesFrontmatter,
     renameBookSession: renameBookSessionMock,
     deleteBookSession: deleteBookSessionMock,
+    listBookSessions: actual.listBookSessions,
     migrateBookSession: migrateBookSessionMock,
     SessionAlreadyMigratedError: MockSessionAlreadyMigratedError,
     resolveServicePreset: resolveServicePresetMock,
@@ -514,6 +520,8 @@ describe("createStudioServer daemon lifecycle", () => {
     saveChapterIndexMock.mockReset();
     loadChapterIndexMock.mockReset();
     loadBookConfigMock.mockReset();
+    saveBookConfigMock.mockReset();
+    saveBookConfigMock.mockResolvedValue(undefined);
     generatePlayImageMock.mockClear();
     await mkdir(join(root, "books", "demo-book", "chapters"), { recursive: true });
     await writeFile(join(root, "books", "demo-book", "chapters", "0003_Demo.md"), "# Demo\n\nBody", "utf-8");
@@ -6868,6 +6876,41 @@ describe("createStudioServer daemon lifecycle", () => {
         },
       ],
     });
+  });
+
+  it("renames a book through the book update endpoint", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/books/demo-book", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Tên quyển mới" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      book: { id: "demo-book", title: "Tên quyển mới" },
+    });
+    expect(saveBookConfigMock).toHaveBeenCalledWith(
+      "demo-book",
+      expect.objectContaining({ title: "Tên quyển mới" }),
+    );
+  });
+
+  it("deletes an entire book directory through the book delete endpoint", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const bookDir = join(root, "books", "demo-book");
+
+    const response = await app.request("http://localhost/api/v1/books/demo-book", {
+      method: "DELETE",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true, bookId: "demo-book" });
+    await expect(access(bookDir)).rejects.toThrow();
   });
 
 });

@@ -90,6 +90,7 @@ describe("shouldRefetchBookView", () => {
 describe("shouldRefetchBookCollections", () => {
   it("refreshes book lists for create/delete and chapter-changing terminal events", () => {
     expect(shouldRefetchBookCollections(msg("book:created", { bookId: "alpha" }, 1))).toBe(true);
+    expect(shouldRefetchBookCollections(msg("book:updated", { bookId: "alpha" }, 1))).toBe(true);
     expect(shouldRefetchBookCollections(msg("book:deleted", { bookId: "alpha" }, 1))).toBe(true);
     expect(shouldRefetchBookCollections(msg("write:complete", { bookId: "alpha" }, 1))).toBe(true);
     expect(shouldRefetchBookCollections(msg("draft:error", { bookId: "alpha" }, 1))).toBe(true);
@@ -120,6 +121,19 @@ describe("applyBookCollectionEvent", () => {
     }, 1))).toEqual([
       { id: "alpha", title: "Alpha", genre: "urban", status: "active", chaptersWritten: 3 },
       { id: "beta", title: "Beta", genre: "xuanhuan", status: "outlining", chaptersWritten: 0 },
+    ]);
+  });
+
+  it("updates a renamed book from the event payload", () => {
+    const books = [
+      { id: "alpha", title: "Old title", genre: "urban", status: "active", chaptersWritten: 3 },
+    ];
+
+    expect(applyBookCollectionEvent(books, msg("book:updated", {
+      bookId: "alpha",
+      book: { id: "alpha", title: "New title", genre: "urban", status: "active", chaptersWritten: 3 },
+    }, 1))).toEqual([
+      { id: "alpha", title: "New title", genre: "urban", status: "active", chaptersWritten: 3 },
     ]);
   });
 
