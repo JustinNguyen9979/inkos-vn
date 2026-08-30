@@ -6,6 +6,8 @@ import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
 
 interface GenreInfo {
   readonly id: string;
@@ -64,6 +66,18 @@ export const GENRE_LANGUAGE_OPTIONS = [
   readonly value: GenreFormData["language"];
   readonly label: string;
 }>;
+
+const genreMarkdownPlugins = { cjk };
+
+export function GenreRulesMarkdown({ markdown }: { readonly markdown: string }) {
+  if (!markdown.trim()) return <span>—</span>;
+
+  return (
+    <Streamdown plugins={genreMarkdownPlugins} mode="static">
+      {markdown}
+    </Streamdown>
+  );
+}
 
 function parseCommaSeparated(value: string): ReadonlyArray<string> {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
@@ -227,7 +241,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   const validSelected = selected && filteredGenres.some((g) => g.id === selected) ? selected : null;
   const selectedGenre = filteredGenres.find((g) => g.id === validSelected) ?? null;
 
-  const { data: detail } = useApi<GenreDetail>(validSelected ? `/genres/${validSelected}` : "");
+  const { data: detail, mutate: setDetail } = useApi<GenreDetail>(validSelected ? `/genres/${validSelected}` : "");
 
   const handleCopy = async (id: string) => {
     await postApi(`/genres/${id}/copy`);
@@ -275,6 +289,8 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
         pacingRule: form.pacingRule,
         body: form.body,
       });
+      const savedDetail = await fetchJson<GenreDetail>(`/genres/${form.id}`);
+      setDetail(savedDetail);
       setFormMode("hidden");
       setSelected(form.id);
       await refetch();
@@ -304,6 +320,8 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
           body: form.body,
         }),
       });
+      const savedDetail = await fetchJson<GenreDetail>(`/genres/${validSelected}`);
+      setDetail(savedDetail);
       setFormMode("hidden");
       await refetch();
     } catch (e) {
@@ -446,9 +464,9 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
 
               <div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">{t("genre.rules")}</div>
-                <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-foreground/80 bg-muted/30 p-4 rounded-md max-h-[300px] overflow-y-auto">
-                  {detail.body || "—"}
-                </pre>
+                <div className="text-sm leading-relaxed text-foreground/80 bg-muted/30 p-4 rounded-md max-h-[300px] overflow-y-auto">
+                  <GenreRulesMarkdown markdown={detail.body} />
+                </div>
               </div>
             </div>
           ) : (

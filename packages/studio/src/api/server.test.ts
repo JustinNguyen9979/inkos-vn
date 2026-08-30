@@ -1126,6 +1126,37 @@ describe("createStudioServer daemon lifecycle", () => {
         }),
       ]),
     });
+
+    const update = await app.request("http://localhost/api/v1/genres/revenge-short", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile: {
+          id: "revenge-short",
+          name: "Trả thù ngắn",
+          language: "vi",
+          chapterTypes: ["Mở nút", "Đảo chiều"],
+          fatigueWords: ["bỗng nhiên", "không ngờ"],
+          numericalSystem: false,
+          powerScaling: false,
+          eraResearch: false,
+          pacingRule: "Mỗi 2 chương phải có tiến triển hoặc hệ quả rõ ràng.",
+        },
+        body: "## Quy tắc cốt lõi\n\n- Không kéo dài xung đột.\n- Mọi bước ngoặt phải có nguyên nhân.",
+      }),
+    });
+    expect(update.status).toBe(200);
+
+    const detail = await app.request("http://localhost/api/v1/genres/revenge-short");
+    expect(detail.status).toBe(200);
+    await expect(detail.json()).resolves.toMatchObject({
+      profile: {
+        language: "vi",
+        fatigueWords: ["bỗng nhiên", "không ngờ"],
+        pacingRule: "Mỗi 2 chương phải có tiến triển hoặc hệ quả rõ ràng.",
+      },
+      body: "## Quy tắc cốt lõi\n\n- Không kéo dài xung đột.\n- Mọi bước ngoặt phải có nguyên nhân.",
+    });
   });
 
   it("returns all bank services with group fields and custom services", async () => {
