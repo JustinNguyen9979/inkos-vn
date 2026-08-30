@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
@@ -9,7 +10,15 @@ const versionIndex = process.argv.indexOf("--version");
 const version = versionIndex === -1 ? undefined : process.argv[versionIndex + 1];
 if (!version) throw new Error("Usage: node scripts/smoke-published-inkos-vn.mjs --version <version>");
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+const npmInvocation = existsSync(npmCli)
+  ? { command: process.execPath, prefix: [npmCli], shell: false }
+  : { command: process.platform === "win32" ? "npm.cmd" : "npm", prefix: [], shell: process.platform === "win32" };
+const runNpm = (args, options = {}) => spawnSync(
+  npmInvocation.command,
+  [...npmInvocation.prefix, ...args],
+  { encoding: "utf8", stdio: "pipe", shell: npmInvocation.shell, ...options },
+);
 const run = (command, args, options = {}) => {
   const result = spawnSync(command, args, { encoding: "utf8", stdio: "pipe", ...options });
   if (result.status !== 0) throw new Error(result.stderr || result.stdout || `${command} failed`);
@@ -19,22 +28,32 @@ const pause = (milliseconds) => Atomics.wait(new Int32Array(new SharedArrayBuffe
 
 for (const name of ["inkos-vn-core", "inkos-vn-studio", "inkos-vn"]) {
   let available = false;
+  let lastRegistryError = "";
   for (let attempt = 1; attempt <= 60; attempt += 1) {
-    const result = spawnSync(npm, ["view", `${name}@${version}`, "version", "--json"], { encoding: "utf8" });
-    if (result.status === 0 && JSON.parse(result.stdout) === version) {
-      available = true;
-      break;
+    const result = runNpm(["view", `${name}@${version}`, "version", "--json"]);
+    if (result.status === 0) {
+      try {
+        if (JSON.parse(result.stdout) === version) {
+          available = true;
+          break;
+        }
+      } catch {
+        // Preserve the unexpected output below so the final error is actionable.
+      }
     }
+    lastRegistryError = result.error?.message || result.stderr.trim() || result.stdout.trim();
     process.stdout.write(`Waiting for npm registry propagation (${name}, attempt ${attempt}/60)\n`);
     pause(10_000);
   }
-  assert.ok(available, `${name}@${version} did not become available within 10 minutes`);
+  assert.ok(available, `${name}@${version} did not become available within 10 minutes: ${lastRegistryError}`);
 }
 
 const testRoot = await mkdtemp(join(tmpdir(), "inkos-vn-smoke-"));
 try {
-  run(npm, ["init", "-y"], { cwd: testRoot });
-  run(npm, ["install", `inkos-vn@${version}`], { cwd: testRoot });
+  for (const args of [["init", "-y"], ["install", `inkos-vn@${version}`]]) {
+    const result = runNpm(args, { cwd: testRoot });
+    if (result.status !== 0) throw new Error(result.stderr || result.stdout || `npm ${args[0]} failed`);
+  }
 
   const cliPackage = JSON.parse(await readFile(join(testRoot, "node_modules", "inkos-vn", "package.json"), "utf8"));
   assert.equal(cliPackage.version, version);
