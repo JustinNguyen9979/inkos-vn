@@ -601,7 +601,11 @@ describe("chat message actions", () => {
     const sessionId = await setupRunningTaskSession(store);
 
     fetchJson.mockClear();
-    fetchJson.mockResolvedValueOnce({ response: "任务还在跑。", session: { sessionId, sessionKind: "short" } });
+    fetchJson.mockImplementation(async (path: string) => (
+      path === "/agent"
+        ? { response: "任务还在跑。", session: { sessionId, sessionKind: "short" } }
+        : {}
+    ));
 
     await store.getState().sendMessage(sessionId, "写得怎么样了？");
 
