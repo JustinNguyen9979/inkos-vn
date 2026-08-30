@@ -56,6 +56,15 @@ const EMPTY_FORM: GenreFormData = {
   body: "",
 };
 
+export const GENRE_LANGUAGE_OPTIONS = [
+  { value: "zh", label: "中文 (zh)" },
+  { value: "en", label: "English (en)" },
+  { value: "vi", label: "Tiếng Việt (vi)" },
+] as const satisfies ReadonlyArray<{
+  readonly value: GenreFormData["language"];
+  readonly label: string;
+}>;
+
 function parseCommaSeparated(value: string): ReadonlyArray<string> {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
@@ -111,8 +120,9 @@ function GenreForm({
           onChange={(e) => set("language", e.target.value as "zh" | "en" | "vi")}
           className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
         >
-          <option value="zh">zh</option>
-          <option value="en">en</option>
+          {GENRE_LANGUAGE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
         </select>
       </div>
 
