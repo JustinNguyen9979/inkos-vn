@@ -2,14 +2,13 @@ name: InkOS VN - Sync, Translate and Release
 
 on:
   push:
-    branches:
-      - inkos-vn
+    branches: [inkos-vn]
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
       release_version:
-        description: "Optional version to retry publishing (for example 1.8.0-vn.1)"
+        description: "Optional date-based npm version to retry (for example 2026.8.30-1)"
         required: false
         type: string
 
@@ -27,12 +26,19 @@ env:
   UPSTREAM_BRANCH: master
   MIRROR_BRANCH: master
   LOCALIZED_BRANCH: inkos-vn
+  PNPM_VERSION: 9.15.9
 
 jobs:
-  sync-translate-release:
+  prepare:
     if: github.repository == 'JustinNguyen9979/inkos-vn'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
+    outputs:
+      publish: ${{ steps.artifacts.outputs.publish }}
+      release_sha: ${{ steps.result.outputs.release_sha }}
+      release_version: ${{ steps.version.outputs.release_version }}
+      release_label: ${{ steps.version.outputs.release_label }}
+      upstream_sha: ${{ steps.upstream.outputs.upstream_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,7 +74,7 @@ jobs:
           set -euo pipefail
           if [ "${{ github.event_name }}" = "push" ]; then
             BASE_SHA="${{ github.event.before }}"
-            LAST_RELEASE_TAG=$(git tag -l "inkos-vn-v*" --sort=-version:refname | sed -n '1p')
+            LAST_RELEASE_TAG=$(git tag -l "inkos-vn-v*" --sort=-creatordate | sed -n '1p')
             if [ -n "$LAST_RELEASE_TAG" ]; then
               LAST_RELEASE_SHA=$(git rev-list -n 1 "$LAST_RELEASE_TAG")
               if git merge-base --is-ancestor "$LAST_RELEASE_SHA" HEAD; then
@@ -85,37 +91,30 @@ jobs:
           if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
             if [ "${{ github.event_name }}" = "push" ]; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
-            elif [ -z "${{ inputs.release_version }}" ]; then
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-            else
+            elif [ -n "${{ inputs.release_version }}" ]; then
               echo "changed=retry" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
             fi
-            exit 0
+          else
+            git merge --no-ff --no-edit "upstream/$UPSTREAM_BRANCH"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-          git merge --no-ff --no-edit "upstream/$UPSTREAM_BRANCH"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
         if: steps.integrate.outputs.changed != 'false'
         with:
-          version: 9.15.9
-
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         if: steps.integrate.outputs.changed != 'false'
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-
       - name: Install dependencies
         if: steps.integrate.outputs.changed != 'false'
         run: pnpm install --frozen-lockfile
 
-      - name: Install npm with trusted publishing support
-        if: steps.integrate.outputs.changed != 'false'
-        run: npm install --global npm@11.5.1
-
-      - name: Update Vietnamese catalog
+      - name: Translate changed frontend catalog entries
         if: steps.integrate.outputs.changed != 'false'
         env:
           INKOS_VN_TRANSLATION_API_KEY: ${{ secrets.INKOS_VN_TRANSLATION_API_KEY }}
@@ -123,18 +122,14 @@ jobs:
           INKOS_VN_TRANSLATION_MODEL: ${{ vars.INKOS_VN_TRANSLATION_MODEL }}
         run: pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts
 
-      - name: Validate Vietnamese catalog
-        if: steps.integrate.outputs.changed != 'false'
-        run: pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts --check
-
-      - name: Build, typecheck and test
+      - name: Run localization preflight checks
         if: steps.integrate.outputs.changed != 'false'
         run: |
-          pnpm build
-          pnpm typecheck
-          pnpm test
+          pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts --check
+          pnpm audit:semantic-patterns
+          node --test scripts/derive-inkos-vn-version.test.mjs
 
-      - name: Decide whether npm artifacts changed
+      - name: Decide whether distributable artifacts changed
         if: steps.integrate.outputs.changed != 'false'
         id: artifacts
         run: |
@@ -154,43 +149,129 @@ jobs:
         if: steps.integrate.outputs.changed != 'false'
         run: |
           set -euo pipefail
-          git add -A
+          git add packages/studio/src/i18n/vi.ts localization/studio-translation-state.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(vn): sync upstream ${{ steps.upstream.outputs.upstream_sha }}"
           fi
           git push origin "HEAD:refs/heads/$LOCALIZED_BRANCH"
 
-      - name: Derive fork release version
+      - name: Derive date-based release version
         if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
         id: version
         run: |
           set -euo pipefail
-          RETRY_VERSION="${{ inputs.release_version }}"
-          if [ -n "$RETRY_VERSION" ]; then
-            RELEASE_VERSION="$RETRY_VERSION"
+          if [ -n "${{ inputs.release_version }}" ]; then
+            node scripts/derive-inkos-vn-version.mjs --override "${{ inputs.release_version }}" --github-output "$GITHUB_OUTPUT"
           else
-            BASE_VERSION=$(node -p "require('./package.json').version")
-            LAST_REV=$(git tag -l "inkos-vn-v${BASE_VERSION}-vn.*" | sed -E "s/^inkos-vn-v${BASE_VERSION//./\\.}-vn\.//" | sort -n | tail -1)
-            NEXT_REV=$(( ${LAST_REV:-0} + 1 ))
-            RELEASE_VERSION="${BASE_VERSION}-vn.${NEXT_REV}"
+            node scripts/derive-inkos-vn-version.mjs --github-output "$GITHUB_OUTPUT"
           fi
-          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Stage and inspect fork packages
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+      - name: Export immutable release commit
+        if: steps.integrate.outputs.changed != 'false'
+        id: result
+        run: echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  quality-gate:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate translation, source patterns and versioning
         run: |
-          node scripts/stage-inkos-vn-packages.mjs --out .inkos-vn-release --version "${{ steps.version.outputs.release_version }}"
-          for pkg in core studio cli; do
-            npm pack ".inkos-vn-release/$pkg" --dry-run
-          done
+          pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts --check
+          pnpm audit:semantic-patterns
+          node --test scripts/derive-inkos-vn-version.test.mjs
+        shell: bash
+      - name: Build, typecheck and unit test
+        run: |
+          pnpm build
+          pnpm typecheck
+          pnpm test
+        shell: bash
+      - name: Stage and inspect all npm packages
+        run: |
+          node scripts/stage-inkos-vn-packages.mjs --out .inkos-vn-release --version "${{ needs.prepare.outputs.release_version }}"
+          node scripts/verify-staged-inkos-vn-packages.mjs --root .inkos-vn-release --version "${{ needs.prepare.outputs.release_version }}"
+          for pkg in core studio cli; do npm pack ".inkos-vn-release/$pkg" --dry-run; done
+        shell: bash
 
-      - name: Publish fork packages
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+  studio-e2e:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Install Chromium
+        run: pnpm --filter @actalk/inkos-studio exec playwright install --with-deps chromium
+      - name: Run Studio browser tests
+        run: pnpm --filter @actalk/inkos-studio test:e2e
+      - name: Upload browser test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-e2e-report
+          path: packages/studio/playwright-report
+          if-no-files-found: ignore
+
+  publish:
+    needs: [prepare, quality-gate, studio-e2e]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: npm install --global npm@11.5.1
+      - run: pnpm build
+      - name: Stage verified release packages
+        run: |
+          node scripts/stage-inkos-vn-packages.mjs --out .inkos-vn-release --version "${{ needs.prepare.outputs.release_version }}"
+          node scripts/verify-staged-inkos-vn-packages.mjs --root .inkos-vn-release --version "${{ needs.prepare.outputs.release_version }}"
+      - name: Publish core, Studio and CLI
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_VN_TOKEN }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.release_version }}"
+          VERSION="${{ needs.prepare.outputs.release_version }}"
           for pkg in core studio cli; do
             NAME=$(node -p "require('./.inkos-vn-release/$pkg/package.json').name")
             if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
@@ -200,56 +281,64 @@ jobs:
             fi
           done
 
-      - name: Verify installed CLI
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.version.outputs.release_version }}"
-          for name in inkos-vn-core inkos-vn-studio inkos-vn; do
-            for attempt in $(seq 1 60); do
-              PUBLISHED_VERSION=$(npm view "$name@$VERSION" version 2>/dev/null || true)
-              if [ "$PUBLISHED_VERSION" = "$VERSION" ]; then
-                echo "$name@$VERSION is available from the npm registry"
-                break
-              fi
-              if [ "$attempt" -eq 60 ]; then
-                echo "$name@$VERSION did not become available within 10 minutes" >&2
-                exit 1
-              fi
-              echo "Waiting for npm registry propagation ($name, attempt $attempt/60)"
-              sleep 10
-            done
-          done
-          TEST_DIR=$(mktemp -d)
-          cd "$TEST_DIR"
-          npm init -y
-          npm install "inkos-vn@$VERSION"
-          npx inkos --version
-          node -e "const p=require('./node_modules/inkos-vn/package.json'); if(!p.dependencies['@actalk/inkos-core'].startsWith('npm:inkos-vn-core@')) process.exit(1)"
+  npm-smoke:
+    needs: [prepare, publish]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install and run the published package
+        run: node scripts/smoke-published-inkos-vn.mjs --version "${{ needs.prepare.outputs.release_version }}"
 
-      - name: Tag localized release
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+  finalize:
+    needs: [prepare, npm-smoke]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          fetch-depth: 0
+      - name: Configure Git identity
         run: |
-          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
+          git config user.name "inkos-vn-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Tag the verified release
+        run: |
+          TAG="inkos-vn-v${{ needs.prepare.outputs.release_version }}"
           if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            git tag -a "$TAG" -m "InkOS VN ${{ steps.version.outputs.release_version }} (upstream ${{ steps.upstream.outputs.upstream_sha }})"
+            git tag -a "$TAG" -m "InkOS VN ${{ needs.prepare.outputs.release_label }} (npm ${{ needs.prepare.outputs.release_version }})"
             git push origin "$TAG"
           fi
-
       - name: Create GitHub release
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
+          TAG="inkos-vn-v${{ needs.prepare.outputs.release_version }}"
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --title "InkOS VN ${{ steps.version.outputs.release_version }}" \
-              --notes "Automated Vietnamese release based on upstream commit ${{ steps.upstream.outputs.upstream_sha }}."
+              --title "InkOS VN ${{ needs.prepare.outputs.release_label }}" \
+              --notes "Verified npm version: ${{ needs.prepare.outputs.release_version }}
+
+          Upstream commit: ${{ needs.prepare.outputs.upstream_sha }}
+
+          Passed build, typecheck and unit tests on Node.js 22/24 across Ubuntu, Windows and macOS; Studio browser E2E; and post-publish installation checks on all three operating systems."
           fi
 
   report-failure:
-    needs: sync-translate-release
+    needs: [prepare, quality-gate, studio-e2e, publish, npm-smoke, finalize]
     if: failure() && github.repository == 'JustinNguyen9979/inkos-vn'
     runs-on: ubuntu-latest
     steps:
@@ -258,7 +347,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="InkOS VN automated sync failed"
-          BODY="The automated sync/translation/release workflow failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          BODY="The sync, frontend translation, test or npm release pipeline failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"

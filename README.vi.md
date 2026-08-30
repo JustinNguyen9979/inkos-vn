@@ -26,9 +26,16 @@ Ngôn ngữ giao diện được tách khỏi ngôn ngữ sáng tác. Chọn gia
 - `master`: mirror fast-forward của `Narcooo/inkos:master`, không chứa thay đổi riêng.
 - `inkos-vn`: default branch, chứa overlay Việt và automation.
 - Workflow `InkOS VN - Sync, Translate and Release` kiểm tra upstream mỗi 6 giờ và cũng chạy khi có code được push vào `inkos-vn`.
-- Thay đổi code/package sau khi vượt qua build, typecheck và test sẽ tạo bản npm `-vn.N` mới; thay đổi chỉ liên quan tài liệu thì không publish.
-- Merge conflict, thiếu bản dịch, build lỗi hoặc test lỗi đều dừng trước khi publish.
+- Thay đổi code/package sau khi vượt qua kiểm tra bản dịch, build, typecheck, unit test và Studio E2E sẽ tạo bản npm mới; thay đổi chỉ liên quan tài liệu thì không publish.
+- Quality gate chạy Node.js 22 và 24 trên Ubuntu, Windows và macOS. Sau khi publish, workflow còn cài và chạy lại package thật từ npm trên cả ba hệ điều hành rồi mới tạo Git tag/GitHub Release.
+- Merge conflict, thiếu bản dịch, lỗi đóng gói hoặc bất kỳ kiểm thử nào thất bại đều dừng trước khi tạo release.
 - Package được phát hành theo thứ tự `inkos-vn-core` → `inkos-vn-studio` → `inkos-vn`.
+
+## Quy tắc version
+
+Nhãn GitHub Release hiển thị dạng `yyyy-mm-dd`, ví dụ `2026-08-30`. Nếu có nhiều lần phát hành trong ngày, các nhãn tiếp theo là `2026-08-30-1`, `2026-08-30-2` và tăng dần.
+
+npm bắt buộc version tuân theo Semantic Versioning nên không chấp nhận dấu gạch ngang giữa năm, tháng và ngày. Vì vậy version npm tương ứng sẽ là `2026.8.30`, `2026.8.30-1`, `2026.8.30-2`. Workflow tự tính hai định dạng này theo múi giờ `Asia/Ho_Chi_Minh`.
 
 ## Thiết lập automation cho chủ repository
 
@@ -40,9 +47,7 @@ Trong GitHub repository:
 4. Thêm secret `INKOS_VN_TRANSLATION_API_KEY`.
 5. Thêm variable `INKOS_VN_TRANSLATION_MODEL`.
 6. Nếu không dùng endpoint mặc định OpenAI, thêm variable `INKOS_VN_TRANSLATION_BASE_URL`.
-7. Chạy workflow thủ công lần đầu với `release_version` là `1.8.0-vn.1`.
-
-Ba tên package `inkos-vn`, `inkos-vn-core` và `inkos-vn-studio` trả về `404 Not Found` trên npm tại thời điểm kiểm tra ngày 26/08/2026. Lần publish đầu tiên vẫn cần tài khoản npm có quyền tạo package public.
+7. Khi cần chạy lại một version đã publish dở, chạy workflow thủ công với `release_version`, ví dụ `2026.8.30-1`. Bình thường nên để trống để workflow tự tăng version.
 
 ## Cơ chế dịch tự động
 

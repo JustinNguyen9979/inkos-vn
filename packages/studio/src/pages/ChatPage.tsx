@@ -1090,6 +1090,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   <Paperclip size={16} strokeWidth={2.3} />
                 </button>
                 <textarea
+                  data-testid="chat-input"
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

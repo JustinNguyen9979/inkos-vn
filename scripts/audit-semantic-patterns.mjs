@@ -70,6 +70,9 @@ function isLikelySemanticDecision(path, line, windowText) {
   if (!isActionSurface(path)) return false;
   if (!PATTERN_TOKENS.some((token) => line.includes(token))) return false;
   if (!hasAny(`${line}\n${windowText}`, SEMANTIC_HINTS)) return false;
+  // Slash commands have an explicit grammar; parsing them is not semantic
+  // intent inference and is safe to keep deterministic.
+  if (path.endsWith("agent-input.ts")) return false;
   if (line.includes("CHAT_EDIT_TEXT_EXTENSIONS")) return false;
   if (line.includes("SAFE_ROLE_TRUTH_FILE_RE")) return false;
   if (path.endsWith("agent-tools.ts") && line.includes("current.includes(")) return false;

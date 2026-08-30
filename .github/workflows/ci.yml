@@ -4,68 +4,71 @@ on:
   push:
     branches: [master, main]
   pull_request:
-    branches: [master, main]
+    branches: [master, main, inkos-vn]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  build-test-pack:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [22, 24]
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
-
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
-
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
+      - name: Validate frontend localization and release scripts
+        run: |
+          pnpm --filter @actalk/inkos-studio exec node --import tsx ../../scripts/sync-vietnamese-catalog.ts --check
+          pnpm audit:semantic-patterns
+          node --test scripts/derive-inkos-vn-version.test.mjs
+        shell: bash
+      - name: Build, typecheck and unit test
+        run: |
+          pnpm build
+          pnpm typecheck
+          pnpm test
+        shell: bash
+      - name: Stage and inspect npm packages
+        run: |
+          VERSION="0.0.0-ci.${{ github.run_id }}.${{ github.run_attempt }}"
+          node scripts/stage-inkos-vn-packages.mjs --out .inkos-vn-release --version "$VERSION"
+          node scripts/verify-staged-inkos-vn-packages.mjs --root .inkos-vn-release --version "$VERSION"
+          for pkg in core studio cli; do npm pack ".inkos-vn-release/$pkg" --dry-run; done
+        shell: bash
 
-  verify-pack:
+  studio-e2e:
     runs-on: ubuntu-latest
-    needs: build-and-test
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
-
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-
-      - name: Verify no workspace:* in tarballs
-        run: |
-          set -euo pipefail
-          for pkg in packages/core packages/cli packages/studio; do
-            echo "--- Checking $pkg ---"
-            cd "$pkg"
-            PACKDIR=$(mktemp -d)
-            npm pack --pack-destination "$PACKDIR" 2>/dev/null
-            TGZ=$(ls "$PACKDIR"/*.tgz)
-            PACKED_PKG=$(tar -xOf "$TGZ" package/package.json)
-            if echo "$PACKED_PKG" | grep -q '"workspace:'; then
-              echo "FAIL: $pkg tarball still contains workspace: protocol"
-              echo "$PACKED_PKG" | grep 'workspace:'
-              rm -rf "$PACKDIR"
-              exit 1
-            fi
-            echo "OK: $pkg tarball is clean"
-            rm -rf "$PACKDIR"
-            cd - >/dev/null
-          done
+      - run: pnpm --filter @actalk/inkos-studio exec playwright install --with-deps chromium
+      - run: pnpm --filter @actalk/inkos-studio test:e2e
+      - name: Upload browser test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-e2e-report
+          path: packages/studio/playwright-report
+          if-no-files-found: ignore

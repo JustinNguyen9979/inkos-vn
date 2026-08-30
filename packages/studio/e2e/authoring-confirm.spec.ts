@@ -35,7 +35,7 @@ test("user drives agent to draft a structure via the confirm flow", async ({ pag
 
   // The ChatPage loads and immediately creates/loads an authoring session.
   // Wait for the chat input to become enabled (session ready).
-  const chatInput = page.getByPlaceholder("输入指令...");
+  const chatInput = page.getByTestId("chat-input");
   await expect(chatInput).toBeVisible({ timeout: 20_000 });
   await expect(chatInput).toBeEnabled({ timeout: 20_000 });
 
