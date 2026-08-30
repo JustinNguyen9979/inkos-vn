@@ -1,6 +1,9 @@
 name: InkOS VN - Sync, Translate and Release
 
 on:
+  push:
+    branches:
+      - inkos-vn
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
@@ -63,10 +66,26 @@ jobs:
         id: integrate
         run: |
           set -euo pipefail
-          BASE_SHA=$(git rev-parse HEAD)
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE_SHA="${{ github.event.before }}"
+            LAST_RELEASE_TAG=$(git tag -l "inkos-vn-v*" --sort=-version:refname | sed -n '1p')
+            if [ -n "$LAST_RELEASE_TAG" ]; then
+              LAST_RELEASE_SHA=$(git rev-list -n 1 "$LAST_RELEASE_TAG")
+              if git merge-base --is-ancestor "$LAST_RELEASE_SHA" HEAD; then
+                BASE_SHA="$LAST_RELEASE_SHA"
+              fi
+            fi
+            if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+              BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)
+            fi
+          else
+            BASE_SHA=$(git rev-parse HEAD)
+          fi
           echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
           if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
-            if [ -z "${{ inputs.release_version }}" ]; then
+            if [ "${{ github.event_name }}" = "push" ]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            elif [ -z "${{ inputs.release_version }}" ]; then
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
               echo "changed=retry" >> "$GITHUB_OUTPUT"
@@ -165,15 +184,6 @@ jobs:
             npm pack ".inkos-vn-release/$pkg" --dry-run
           done
 
-      - name: Tag localized release
-        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
-        run: |
-          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
-          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            git tag -a "$TAG" -m "InkOS VN ${{ steps.version.outputs.release_version }} (upstream ${{ steps.upstream.outputs.upstream_sha }})"
-            git push origin "$TAG"
-          fi
-
       - name: Publish fork packages
         if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
         env:
@@ -216,6 +226,15 @@ jobs:
           npm install "inkos-vn@$VERSION"
           npx inkos --version
           node -e "const p=require('./node_modules/inkos-vn/package.json'); if(!p.dependencies['@actalk/inkos-core'].startsWith('npm:inkos-vn-core@')) process.exit(1)"
+
+      - name: Tag localized release
+        if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'
+        run: |
+          TAG="inkos-vn-v${{ steps.version.outputs.release_version }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git tag -a "$TAG" -m "InkOS VN ${{ steps.version.outputs.release_version }} (upstream ${{ steps.upstream.outputs.upstream_sha }})"
+            git push origin "$TAG"
+          fi
 
       - name: Create GitHub release
         if: steps.integrate.outputs.changed != 'false' && steps.artifacts.outputs.publish == 'true'

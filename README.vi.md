@@ -25,7 +25,8 @@ Ngôn ngữ giao diện được tách khỏi ngôn ngữ sáng tác. Chọn gia
 
 - `master`: mirror fast-forward của `Narcooo/inkos:master`, không chứa thay đổi riêng.
 - `inkos-vn`: default branch, chứa overlay Việt và automation.
-- Workflow `InkOS VN - Sync, Translate and Release` kiểm tra upstream mỗi 6 giờ.
+- Workflow `InkOS VN - Sync, Translate and Release` kiểm tra upstream mỗi 6 giờ và cũng chạy khi có code được push vào `inkos-vn`.
+- Thay đổi code/package sau khi vượt qua build, typecheck và test sẽ tạo bản npm `-vn.N` mới; thay đổi chỉ liên quan tài liệu thì không publish.
 - Merge conflict, thiếu bản dịch, build lỗi hoặc test lỗi đều dừng trước khi publish.
 - Package được phát hành theo thứ tự `inkos-vn-core` → `inkos-vn-studio` → `inkos-vn`.
 
