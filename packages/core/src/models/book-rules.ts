@@ -129,28 +129,31 @@ export function tryParseBookRulesFrontmatter(
 }
 
 function parseMarkdownBookRules(raw: string): BookRules {
-  const protagonistSection = extractMarkdownSection(raw, ["主角", "Protagonist"]);
+  const protagonistSection = extractMarkdownSection(raw, ["主角", "Protagonist", "Nhân vật chính"]);
   const protagonistName =
-    readLabeledValue(protagonistSection, ["名字", "姓名", "name", "protagonist"])
-    ?? readLabeledValue(raw, ["主角", "protagonist"]);
+    readLabeledValue(protagonistSection, ["名字", "姓名", "name", "protagonist", "tên"])
+    ?? readLabeledValue(raw, ["主角", "protagonist", "nhân vật chính"]);
   const personalityLock = readLabeledList(protagonistSection, [
     "性格锁",
     "性格关键词",
     "personalityLock",
     "personality lock",
     "core tags",
+    "khóa tính cách",
+    "từ khóa tính cách",
   ]);
   const behavioralConstraints = readLabeledList(protagonistSection, [
     "行为约束",
     "behavioralConstraints",
     "behavioral constraints",
+    "ràng buộc hành vi",
   ]);
 
-  const genreSection = extractMarkdownSection(raw, ["题材锁", "Genre Lock", "Genre"]);
-  const primary = readLabeledValue(genreSection, ["主类型", "题材", "primary", "genre"]);
+  const genreSection = extractMarkdownSection(raw, ["题材锁", "Genre Lock", "Genre", "Khóa thể loại", "Thể loại"]);
+  const primary = readLabeledValue(genreSection, ["主类型", "题材", "primary", "genre", "thể loại chính", "chính"]);
   const forbidden = [
-    ...readLabeledList(genreSection, ["禁止混入", "禁混", "forbidden"]),
-    ...readMarkdownList(extractMarkdownSection(raw, ["禁止混入", "Forbidden Style Intrusions", "Forbidden"])),
+    ...readLabeledList(genreSection, ["禁止混入", "禁混", "forbidden", "không được pha trộn"]),
+    ...readMarkdownList(extractMarkdownSection(raw, ["禁止混入", "Forbidden Style Intrusions", "Forbidden", "Nội dung không được pha trộn"])),
   ];
 
   const prohibitions = readMarkdownList(extractMarkdownSection(raw, [
@@ -159,20 +162,24 @@ function parseMarkdownBookRules(raw: string): BookRules {
     "本书禁忌",
     "Prohibitions",
     "Do Not",
+    "Điều cấm",
+    "Nội dung cấm",
   ]));
-  const fanficSection = extractMarkdownSection(raw, ["同人模式", "Fanfic Mode", "Fanfic"]);
+  const fanficSection = extractMarkdownSection(raw, ["同人模式", "Fanfic Mode", "Fanfic", "Chế độ đồng nhân", "Đồng nhân"]);
   const fanficMode = normalizeFanficMode(readLabeledValue(fanficSection, [
     "模式",
     "同人模式",
     "fanficMode",
     "fanfic mode",
     "mode",
+    "chế độ",
   ]));
   const allowedDeviations = readLabeledList(fanficSection, [
     "允许偏离",
     "允许的偏离",
     "allowedDeviations",
     "allowed deviations",
+    "sai lệch được phép",
   ]);
 
   const numericalSection = extractMarkdownSection(raw, [
@@ -182,6 +189,9 @@ function parseMarkdownBookRules(raw: string): BookRules {
     "Numerical / Resource Rules",
     "Numerical Rules",
     "Resource Rules",
+    "Quy tắc số liệu / tài nguyên",
+    "Quy tắc số liệu",
+    "Quy tắc tài nguyên",
   ]);
   const resourceTypes = readLabeledList(numericalSection, [
     "核心资源",
@@ -189,12 +199,14 @@ function parseMarkdownBookRules(raw: string): BookRules {
     "resourceTypes",
     "core resources",
     "resources",
+    "tài nguyên cốt lõi",
+    "tài nguyên",
   ]);
-  const hardCap = readLabeledValue(numericalSection, ["硬上限", "hardCap", "hard cap"]);
+  const hardCap = readLabeledValue(numericalSection, ["硬上限", "hardCap", "hard cap", "giới hạn cứng"]);
 
-  const eraSection = extractMarkdownSection(raw, ["年代限制", "时代限制", "Era Constraints"]);
-  const period = readLabeledValue(eraSection, ["时期", "年代", "period", "era"]);
-  const region = readLabeledValue(eraSection, ["地域", "地区", "region"]);
+  const eraSection = extractMarkdownSection(raw, ["年代限制", "时代限制", "Era Constraints", "Ràng buộc thời đại"]);
+  const period = readLabeledValue(eraSection, ["时期", "年代", "period", "era", "thời kỳ", "thời đại"]);
+  const region = readLabeledValue(eraSection, ["地域", "地区", "region", "khu vực", "địa phương"]);
 
   return BookRulesSchema.parse({
     protagonist: protagonistName
@@ -281,8 +293,8 @@ function splitList(value: string): string[] {
 }
 
 function detectNarrativePerson(raw: string): "first" | "third" | undefined {
-  if (/第一人称|first[-\s]?person|\bfirst\b/i.test(raw)) return "first";
-  if (/第三人称|third[-\s]?person|\bthird\b/i.test(raw)) return "third";
+  if (/第一人称|first[-\s]?person|\bfirst\b|ngôi (?:kể )?thứ nhất/i.test(raw)) return "first";
+  if (/第三人称|third[-\s]?person|\bthird\b|ngôi (?:kể )?thứ ba/i.test(raw)) return "third";
   return undefined;
 }
 

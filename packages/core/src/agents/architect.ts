@@ -104,6 +104,18 @@ class MissingArchitectSectionsError extends Error {
   }
 }
 
+const ENGLISH_FOUNDATION_HEADING_RE = /^\s{0,3}#{1,6}\s+(?:\d{2}_[A-Za-z]|Core_Tags|Contrast_Detail|Back_Story|Protagonist_Arc|Current_State|Relationship_Network|Inner_Driver|Growth_Arc|Relationship_to_Protagonist|Protagonist|Genre Lock|Narrative Person|Numerical \/ Resource Rules|Era Constraints|Prohibitions)\b/im;
+const PINYIN_NAME_RE = /\b(?:Zhao|Zhang|Wang|Liu|Chen|Yang|Huang|Zhou|Xu|Sun|Ma|Zhu|Hu|Guo|Gao|Luo|Zheng|Liang|Xie|Song|Tang|Deng|Han|Cao|Peng|Xiao|Tian|Dong|Pan|Yuan|Cai|Jiang|Shen|Ren|Fang|Duan|Qiao)\s+[A-Z][a-z]+\b/;
+const ENGLISH_PROSE_WORD_RE = /\b(?:the|and|that|with|from|this|into|their|must|story|character|volume|protagonist|conflict|world|chapter)\b/gi;
+
+function needsVietnameseFoundationRepair(content: string): boolean {
+  if (ENGLISH_FOUNDATION_HEADING_RE.test(content) || PINYIN_NAME_RE.test(content) || /[一-鿿]/u.test(content)) {
+    return true;
+  }
+  const proseWords = content.match(ENGLISH_PROSE_WORD_RE)?.length ?? 0;
+  return proseWords >= 20;
+}
+
 export class ArchitectAgent extends BaseAgent {
   get name(): string {
     return "architect";
@@ -161,7 +173,32 @@ export class ArchitectAgent extends BaseAgent {
       { role: "user", content: userMessage },
     ], { temperature: 0.8 });
 
-    return this.parseSectionsWithRepair(response.content, resolvedLanguage);
+    const localizedContent = await this.ensureVietnameseFoundation(response.content, resolvedLanguage);
+    return this.parseSectionsWithRepair(localizedContent, resolvedLanguage);
+  }
+
+  private async ensureVietnameseFoundation(
+    content: string,
+    language: "zh" | "en" | "vi",
+  ): Promise<string> {
+    if (language !== "vi" || !needsVietnameseFoundationRepair(content)) return content;
+
+    const system = `You are the final Vietnamese localization gate for an InkOS book foundation.
+Rewrite the complete foundation in natural Vietnamese without shortening, summarizing, inventing, or removing any story fact.
+
+Mandatory rules:
+- Preserve exactly these five parser markers and their order: === SECTION: story_frame ===, === SECTION: volume_map ===, === SECTION: roles ===, === SECTION: book_rules ===, === SECTION: pending_hooks ===.
+- Preserve the machine markers ---ROLE--- / ---CONTENT---, the keys tier / name, role tier values major / minor, hook table machine column keys, hook IDs, statuses, booleans, and dependency IDs.
+- Translate every reader-facing Markdown heading, label, description, plan, rule, character profile, and table note into natural Vietnamese.
+- If the setting is Chinese, convert every Chinese-character or Pinyin personal/place/sect/organization/title name to one consistent Vietnamese Hán–Việt reading. Example: Zhao Ning -> Triệu Ninh, Beijing -> Bắc Kinh, Shanghai -> Thượng Hải. Never leave Pinyin in reader-facing content.
+- Preserve non-Chinese proper names and all canon facts.
+- Return only the complete repaired foundation, with no preface or explanation.`;
+
+    const response = await this.chat([
+      { role: "system", content: withVietnameseOutputContract(system, language) },
+      { role: "user", content },
+    ], { temperature: 0.2 });
+    return response.content;
   }
 
   private buildRevisePrompt(reviseFrom: {
@@ -620,8 +657,9 @@ You MUST emit all **5 SECTION blocks in order**: story_frame → volume_map → 
       }
 
       const repaired = await this.repairMissingSections(error, language);
+      const localizedRepaired = await this.ensureVietnameseFoundation(repaired, language);
       try {
-        return this.parseSections(repaired, language);
+        return this.parseSections(localizedRepaired, language);
       } catch (repairError) {
         if (repairError instanceof MissingArchitectSectionsError) {
           const missing = repairError.missing.join("、");
@@ -1067,7 +1105,9 @@ Follow the consolidated 5-section === SECTION: === layout: story_frame, volume_m
 
 All prose must be derived from the source package. Do not invent settings. If the package says it is compressed, treat chapter catalog + excerpts as evidence for the foundation; the full chapters will be replayed later for detailed truth files. For volume_map, treat existing chapters as "review" (one paragraph) and continuation as prose chapter-level planning. Hook extraction must be complete for the evidence provided.
 
-All output MUST be written in English.`
+${resolvedLanguage === "vi"
+  ? "All reader-facing output, including Markdown headings and labels, MUST be written in natural Vietnamese."
+  : "All output MUST be written in English."}`
       : `你是专业的网络小说架构师。从已有章节中反向推导散文密度的基础设定，同时设计续写路径。${contextBlock}${reviewFeedbackBlock}
 
 ## 书籍元信息
@@ -1089,7 +1129,9 @@ ${continuationDirective}
 所有 prose 必须从资料包中推导，不得臆造。若资料包声明为压缩包，把章节目录和正文摘录当作基础设定证据；完整章节会在后续回放阶段逐章进入 truth files。volume_map 中，已有章节作为"回顾段"（一段散文），续写部分写到章级 prose。伏笔识别以资料包提供的证据为准，尽量完整。`;
 
     const userMessage = resolvedLanguage !== "zh"
-      ? `Generate the complete foundation for an imported ${gp.name} novel titled "${book.title}". Write everything in English.\n\n${chaptersText}`
+      ? resolvedLanguage === "vi"
+        ? `Generate the complete foundation for an imported ${gp.name} novel titled "${book.title}". Write all reader-facing content in natural Vietnamese and use Hán–Việt names for a Chinese setting.\n\n${chaptersText}`
+        : `Generate the complete foundation for an imported ${gp.name} novel titled "${book.title}". Write everything in English.\n\n${chaptersText}`
       : `以下是《${book.title}》的已有正文资料包，请从中反向推导完整基础设定：\n\n${chaptersText}`;
 
     const response = await this.chat([
@@ -1097,7 +1139,8 @@ ${continuationDirective}
       { role: "user", content: userMessage },
     ], { temperature: 0.5 });
 
-    return this.parseSectionsWithRepair(response.content, resolvedLanguage);
+    const localizedContent = await this.ensureVietnameseFoundation(response.content, resolvedLanguage);
+    return this.parseSectionsWithRepair(localizedContent, resolvedLanguage);
   }
 
   async generateFanficFoundation(
@@ -1150,11 +1193,15 @@ ${genreBody}
       { role: "system", content: withVietnameseOutputContract(systemPrompt, book.language ?? "zh") },
       {
         role: "user",
-        content: `请为标题为"${book.title}"的${fanficMode}模式同人小说生成基础设定。目标${book.targetChapters}章，每章${book.chapterWordCount}字。`,
+        content: (book.language ?? "zh") === "vi"
+          ? `Hãy tạo nền tảng hoàn chỉnh cho truyện đồng nhân "${book.title}" ở chế độ ${fanficMode}, gồm ${book.targetChapters} chương, mỗi chương ${book.chapterWordCount} từ. Toàn bộ nội dung hướng đến người đọc phải bằng tiếng Việt; tên Trung Quốc phải dùng cách đọc Hán–Việt.`
+          : `请为标题为"${book.title}"的${fanficMode}模式同人小说生成基础设定。目标${book.targetChapters}章，每章${book.chapterWordCount}字。`,
       },
     ], { temperature: 0.7 });
 
-    return this.parseSectionsWithRepair(response.content, book.language ?? "zh");
+    const resolvedLanguage = book.language ?? "zh";
+    const localizedContent = await this.ensureVietnameseFoundation(response.content, resolvedLanguage);
+    return this.parseSectionsWithRepair(localizedContent, resolvedLanguage);
   }
 
   // -------------------------------------------------------------------------

@@ -31,6 +31,9 @@ describe("inferLanguage", () => {
     expect(prompt).toContain("all narrative prose");
     expect(prompt).toContain("natural Vietnamese syntax and cadence");
     expect(prompt).toContain("pronouns and kinship terms consistent");
+    expect(prompt).toContain("reader-facing Markdown headings");
+    expect(prompt).toContain("Hán–Việt readings");
+    expect(prompt).toContain('set it to "vi"');
     expect(withVietnameseOutputContract("Base instructions", "en")).toBe("Base instructions");
   });
 

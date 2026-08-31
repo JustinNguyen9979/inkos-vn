@@ -927,7 +927,10 @@ export function createSubAgentTool(
     readonly workerSkills?: (agent: string) => ReadonlyArray<ActivatedSkillGuidance>;
   } = {},
 ): AgentTool<any> {
-  const sessionIsZh = (options.language ?? "zh") !== "en";
+  const sessionLanguage = options.language ?? "zh";
+  const localized = (zh: string, en: string, vi: string): string => (
+    sessionLanguage === "zh" ? zh : sessionLanguage === "vi" ? vi : en
+  );
   return {
     name: "sub_agent",
     description: options.architectCreateOnly
@@ -958,16 +961,22 @@ export function createSubAgentTool(
 
         try {
           if (options.architectCreateOnly && agent !== "architect") {
-            throw new Error("This confirmed book-creation turn can only run the architect. Open the created book or use the book session to write chapters.");
+            throw new Error(sessionLanguage === "vi"
+              ? "Lượt xác nhận tạo quyển này chỉ được chạy kiến trúc sư. Sau khi tạo xong, hãy mở quyển để viết chương."
+              : "This confirmed book-creation turn can only run the architect. Open the created book or use the book session to write chapters.");
           }
           if (!activeBookId && agent !== "architect") {
-            return textResult("No active book. Only the architect agent can create a book from this session.");
+            return textResult(sessionLanguage === "vi"
+              ? "Chưa có quyển nào đang mở. Trong phiên này chỉ kiến trúc sư mới có thể tạo quyển."
+              : "No active book. Only the architect agent can create a book from this session.");
           }
           if (activeBookId && agent === "architect" && !revise) {
             return textResult(
-              sessionIsZh
-                ? "当前已有书籍，不需要建书。如果你想创建新书，请先回到首页。"
-                : "This session already has a book, so no new book is needed. To create a new book, go back to the home page first.",
+              localized(
+                "当前已有书籍，不需要建书。如果你想创建新书，请先回到首页。",
+                "This session already has a book, so no new book is needed. To create a new book, go back to the home page first.",
+                "Phiên này đã có một quyển. Nếu muốn tạo quyển mới, hãy quay lại trang chủ trước.",
+              ),
             );
           }
 
@@ -976,21 +985,33 @@ export function createSubAgentTool(
             const createBookPayload = options.actionPayload?.createBook;
             if (revise) {
               if (!activeBookId) {
-                return textResult("Open the book first before revising its foundation.");
+                return textResult(sessionLanguage === "vi"
+                  ? "Hãy mở quyển trước khi chỉnh sửa nền tảng truyện."
+                  : "Open the book first before revising its foundation.");
               }
               const targetBookId = resolveToolBookId("architect", bookId, activeBookId);
-              progress(`Revising foundation for "${targetBookId}"...`);
+              progress(localized(
+                `正在重写“${targetBookId}”的基础设定……`,
+                `Revising foundation for "${targetBookId}"...`,
+                `Đang chỉnh sửa nền tảng truyện của “${targetBookId}”…`,
+              ));
               await runPipelineWithAgentContext(
                 pipeline,
                 _signal,
                 activatedSkills,
                 () => pipeline.reviseFoundation(targetBookId, feedback ?? instruction),
               );
-              progress(`Foundation revised for "${targetBookId}".`);
+              progress(localized(
+                `“${targetBookId}”的基础设定已重写。`,
+                `Foundation revised for "${targetBookId}".`,
+                `Đã chỉnh sửa nền tảng truyện của “${targetBookId}”.`,
+              ));
               return textResult(
-                sessionIsZh
-                  ? `Book "${targetBookId}" 架构稿已按要求重写。原书的条目式架构稿已备份到 story/.backup-phase4-<时间戳>/。`
-                  : `Book "${targetBookId}" foundation has been rewritten as requested. The previous itemized foundation was backed up to story/.backup-phase4-<timestamp>/.`,
+                localized(
+                  `Book "${targetBookId}" 架构稿已按要求重写。原书的条目式架构稿已备份到 story/.backup-phase4-<时间戳>/。`,
+                  `Book "${targetBookId}" foundation has been rewritten as requested. The previous itemized foundation was backed up to story/.backup-phase4-<timestamp>/.`,
+                  `Nền tảng truyện của quyển “${targetBookId}” đã được viết lại theo yêu cầu. Bản cũ đã được sao lưu tại story/.backup-phase4-<dấu-thời-gian>/.`,
+                ),
               );
             }
             const confirmedTitle = createBookPayload?.title?.trim();
@@ -1005,7 +1026,11 @@ export function createSubAgentTool(
                 : deriveBookIdFromTitle(resolvedTitle) || `book-${Date.now().toString(36)}`;
             const now = new Date().toISOString();
             const resolvedLanguage = createBookPayload?.language ?? language ?? inferLanguage(instruction);
-            progress(`Starting architect for book "${id}"...`);
+            progress(localized(
+              `正在为“${id}”启动架构师……`,
+              `Starting architect for book "${id}"...`,
+              `Đang khởi chạy kiến trúc sư cho quyển “${id}”…`,
+            ));
             await runPipelineWithAgentContext(
               pipeline,
               _signal,
@@ -1026,9 +1051,17 @@ export function createSubAgentTool(
                 { externalContext: instruction },
               ),
             );
-            progress(`Architect finished — book "${id}" foundation created.`);
+            progress(localized(
+              `架构师已完成——“${id}”的基础设定已创建。`,
+              `Architect finished — book "${id}" foundation created.`,
+              `Kiến trúc sư đã hoàn tất — nền tảng truyện của “${id}” đã được tạo.`,
+            ));
             return textResult(
-              `Book "${resolvedTitle}" (${id}) initialised successfully. Foundation files are ready.`,
+              localized(
+                `书籍“${resolvedTitle}”（${id}）已初始化，基础设定文件已就绪。`,
+                `Book "${resolvedTitle}" (${id}) initialised successfully. Foundation files are ready.`,
+                `Quyển “${resolvedTitle}” (${id}) đã được khởi tạo thành công. Các tệp nền tảng đã sẵn sàng.`,
+              ),
               { kind: "book_created", bookId: id, title: resolvedTitle, skillIds },
             );
           }
@@ -1037,7 +1070,11 @@ export function createSubAgentTool(
             const targetBookId = resolveToolBookId("writer", bookId, activeBookId);
             const requestedCount = chapterCount ?? 1;
             if (requestedCount > 1) {
-              progress(`Writing ${requestedCount} consecutive chapters for "${targetBookId}"...`);
+              progress(localized(
+                `正在为“${targetBookId}”连续写作 ${requestedCount} 章……`,
+                `Writing ${requestedCount} consecutive chapters for "${targetBookId}"...`,
+                `Đang viết liên tiếp ${requestedCount} chương cho “${targetBookId}”…`,
+              ));
               const results = await runPipelineWithAgentContext(
                 pipeline,
                 _signal,
@@ -1046,7 +1083,11 @@ export function createSubAgentTool(
                   wordCount: chapterWordCount,
                   externalContext: instruction,
                   onChapterComplete(result, completedCount, totalCount) {
-                    progress(`Writer finished chapter ${result.chapterNumber} (${completedCount}/${totalCount}) for "${targetBookId}".`);
+                    progress(localized(
+                      `已为“${targetBookId}”完成第 ${result.chapterNumber} 章（${completedCount}/${totalCount}）。`,
+                      `Writer finished chapter ${result.chapterNumber} (${completedCount}/${totalCount}) for "${targetBookId}".`,
+                      `Đã hoàn thành chương ${result.chapterNumber} (${completedCount}/${totalCount}) cho “${targetBookId}”.`,
+                    ));
                   },
                 }),
               );
@@ -1054,12 +1095,16 @@ export function createSubAgentTool(
               const stoppedStatus = last?.status !== "ready-for-review" ? last?.status : undefined;
               const output = textResult(
                 stoppedStatus
-                  ? sessionIsZh
-                    ? `已完成 ${results.length}/${requestedCount} 章；第 ${last?.chapterNumber} 章状态为 ${stoppedStatus}，批量写作已停止，请复核后再继续。`
-                    : `Writer completed ${results.length} of ${requestedCount} requested chapters for "${targetBookId}" and stopped because chapter ${last?.chapterNumber} ended with status "${stoppedStatus}".`
-                  : sessionIsZh
-                    ? `已连续完成 ${results.length} 章（第 ${results[0]?.chapterNumber} 章至第 ${last?.chapterNumber} 章）。`
-                    : `Writer completed ${results.length} consecutive chapters for "${targetBookId}".`,
+                  ? localized(
+                    `已完成 ${results.length}/${requestedCount} 章；第 ${last?.chapterNumber} 章状态为 ${stoppedStatus}，批量写作已停止，请复核后再继续。`,
+                    `Writer completed ${results.length} of ${requestedCount} requested chapters for "${targetBookId}" and stopped because chapter ${last?.chapterNumber} ended with status "${stoppedStatus}".`,
+                    `Đã hoàn thành ${results.length}/${requestedCount} chương; quá trình viết hàng loạt dừng lại vì chương ${last?.chapterNumber} có trạng thái “${stoppedStatus}”. Hãy kiểm tra trước khi tiếp tục.`,
+                  )
+                  : localized(
+                    `已连续完成 ${results.length} 章（第 ${results[0]?.chapterNumber} 章至第 ${last?.chapterNumber} 章）。`,
+                    `Writer completed ${results.length} consecutive chapters for "${targetBookId}".`,
+                    `Đã viết liên tiếp ${results.length} chương, từ chương ${results[0]?.chapterNumber} đến chương ${last?.chapterNumber}.`,
+                  ),
                 {
                   kind: "chapters_written",
                   bookId: targetBookId,
@@ -1078,31 +1123,45 @@ export function createSubAgentTool(
               );
               return stoppedStatus ? { ...output, isError: true } : output;
             }
-            progress(`Writing next chapter for "${targetBookId}"...`);
+            progress(localized(
+              `正在为“${targetBookId}”写下一章……`,
+              `Writing next chapter for "${targetBookId}"...`,
+              `Đang viết chương tiếp theo cho “${targetBookId}”…`,
+            ));
             const result = await runPipelineWithAgentContext(
               pipeline,
               _signal,
               activatedSkills,
               () => pipeline.writeNextChapter(targetBookId, chapterWordCount, undefined, instruction),
             );
-            progress(`Writer finished chapter for "${targetBookId}".`);
+            progress(localized(
+              `“${targetBookId}”的章节已写完。`,
+              `Writer finished chapter for "${targetBookId}".`,
+              `Đã viết xong chương cho “${targetBookId}”.`,
+            ));
             const resultStatus = (result as any).status;
             const wordCount = (result as any).wordCount ?? "unknown";
             const chapterNumberResult = (result as any).chapterNumber;
             const titleResult = (result as any).title;
             const needsReview = Boolean(resultStatus && resultStatus !== "ready-for-review" && resultStatus !== "active");
             const chapterRef = chapterNumberResult
-              ? sessionIsZh
-                ? `第 ${chapterNumberResult} 章${titleResult ? `《${titleResult}》` : ""}`
-                : `chapter ${chapterNumberResult}${titleResult ? ` "${titleResult}"` : ""}`
-              : sessionIsZh ? "下一章" : "the next chapter";
+              ? localized(
+                `第 ${chapterNumberResult} 章${titleResult ? `《${titleResult}》` : ""}`,
+                `chapter ${chapterNumberResult}${titleResult ? ` "${titleResult}"` : ""}`,
+                `chương ${chapterNumberResult}${titleResult ? ` “${titleResult}”` : ""}`,
+              )
+              : localized("下一章", "the next chapter", "chương tiếp theo");
             const message = needsReview
-              ? sessionIsZh
-                ? `已为 ${targetBookId} 写出${chapterRef}，字数 ${wordCount}，但审稿未通过，状态 ${resultStatus}，需要复核后再继续。`
-                : `Wrote ${chapterRef} for ${targetBookId}: ${wordCount} words, but review did not pass (status: ${resultStatus}). Manual review is required before continuing.`
-              : sessionIsZh
-                ? `已为 ${targetBookId} 完成${chapterRef}，字数 ${wordCount}，状态 ${resultStatus ?? "ready-for-review"}。`
-                : `Completed ${chapterRef} for ${targetBookId}: ${wordCount} words, status ${resultStatus ?? "ready-for-review"}.`;
+              ? localized(
+                `已为 ${targetBookId} 写出${chapterRef}，字数 ${wordCount}，但审稿未通过，状态 ${resultStatus}，需要复核后再继续。`,
+                `Wrote ${chapterRef} for ${targetBookId}: ${wordCount} words, but review did not pass (status: ${resultStatus}). Manual review is required before continuing.`,
+                `Đã viết ${chapterRef} cho ${targetBookId}, độ dài ${wordCount} từ, nhưng chưa vượt qua bước duyệt (trạng thái: ${resultStatus}). Cần kiểm tra thủ công trước khi tiếp tục.`,
+              )
+              : localized(
+                `已为 ${targetBookId} 完成${chapterRef}，字数 ${wordCount}，状态 ${resultStatus ?? "ready-for-review"}。`,
+                `Completed ${chapterRef} for ${targetBookId}: ${wordCount} words, status ${resultStatus ?? "ready-for-review"}.`,
+                `Đã hoàn thành ${chapterRef} cho ${targetBookId}, độ dài ${wordCount} từ, trạng thái ${resultStatus ?? "ready-for-review"}.`,
+              );
             const output = textResult(
               message,
               {

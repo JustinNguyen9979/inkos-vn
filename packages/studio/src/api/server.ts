@@ -1263,6 +1263,7 @@ async function executeConfirmedProductionAction(args: {
     const title = requirePayloadText(payload?.title, pick(lang, "确认建书缺少书名，请重新生成确认卡。", "The book creation confirmation is missing a title. Regenerate the confirmation card."));
     tool = createSubAgentTool(args.pipeline, null, args.root, {
       actionPayload,
+      language: lang,
       workerSkills: (worker) => worker === "architect" ? productionSkills("longWriting") : [],
     });
     agent = "architect";
@@ -1272,7 +1273,7 @@ async function executeConfirmedProductionAction(args: {
       title,
       ...(payload?.genre ? { genre: payload.genre } : {}),
       ...(payload?.platform ? { platform: payload.platform } : {}),
-      ...(payload?.language ? { language: payload.language } : {}),
+      language: payload?.language ?? lang,
       ...(payload?.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload?.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };

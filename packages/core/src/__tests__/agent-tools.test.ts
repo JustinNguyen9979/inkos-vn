@@ -858,6 +858,34 @@ describe("agent deterministic writing tools", () => {
     );
   });
 
+  it("reports Vietnamese architect progress and completion for a Vietnamese creation session", async () => {
+    const pipeline = contextPipeline({
+      initBook: vi.fn(async () => undefined),
+    });
+    const tool = createSubAgentTool(pipeline as never, null, undefined, {
+      language: "vi",
+      actionPayload: {
+        createBook: {
+          title: "Truyền nhân cuối cùng",
+          genre: "urban",
+          platform: "tomato",
+          language: "vi",
+        },
+      },
+    });
+    const updates: unknown[] = [];
+
+    const result = await tool.execute("tool-vietnamese-book", {
+      agent: "architect",
+      title: "Truyền nhân cuối cùng",
+      instruction: "Tạo truyện huyền nghi đô thị lấy bối cảnh Trung Quốc.",
+    } as any, undefined, (update) => updates.push(update));
+
+    expect(JSON.stringify(updates)).toContain("Đang khởi chạy kiến trúc sư");
+    expect(JSON.stringify(updates)).toContain("nền tảng truyện");
+    expect(JSON.stringify(result)).toContain("đã được khởi tạo thành công");
+  });
+
   it("derives the confirmed book id from the confirmed title instead of model-supplied bookId", async () => {
     const pipeline = contextPipeline({
       initBook: vi.fn(async () => undefined),

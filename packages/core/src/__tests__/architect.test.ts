@@ -922,4 +922,72 @@ describe("ArchitectAgent", () => {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("repairs Vietnamese foundations that leak English headings and Pinyin names", async () => {
+    const agent = buildPhase5Agent();
+    const book: BookConfig = {
+      ...phase5Book(),
+      id: "vietnamese-book",
+      title: "Truyền nhân cuối cùng",
+      language: "vi",
+    };
+    const initial = [
+      "=== SECTION: story_frame ===",
+      "## 01_Theme_and_Tonal_Ground",
+      "The story follows Zhao Ning in modern China.",
+      "=== SECTION: volume_map ===",
+      "## 01_Volume_Themes_and_Emotional_Curves",
+      "The first volume introduces the central conflict.",
+      "=== SECTION: roles ===",
+      "---ROLE---",
+      "tier: major",
+      "name: Zhao Ning",
+      "---CONTENT---",
+      "## Core_Tags",
+      "A determined investigator.",
+      "=== SECTION: book_rules ===",
+      "## Protagonist",
+      "- Name: Zhao Ning",
+      "=== SECTION: pending_hooks ===",
+      "| hook_id | start_chapter | type | status | last_advanced_chapter | expected_payoff | payoff_timing | depends_on | pays_off_in_arc | core_hook | half_life | notes |",
+      "|---|---|---|---|---|---|---|---|---|---|---|---|",
+      "| H001 | 0 | mystery | deferred | 0 | 20 | mid-arc | none | volume 1 | true | 30 | first clue |",
+    ].join("\n");
+    const repaired = [
+      "=== SECTION: story_frame ===",
+      "## Chủ đề và sắc thái",
+      "Câu chuyện theo chân Triệu Ninh trong bối cảnh Trung Quốc hiện đại.",
+      "=== SECTION: volume_map ===",
+      "## Chủ đề và đường cong cảm xúc từng quyển",
+      "Quyển đầu mở ra xung đột trung tâm.",
+      "=== SECTION: roles ===",
+      "---ROLE---",
+      "tier: major",
+      "name: Triệu Ninh",
+      "---CONTENT---",
+      "## Nhãn cốt lõi",
+      "Một điều tra viên kiên định.",
+      "=== SECTION: book_rules ===",
+      "## Nhân vật chính",
+      "- Tên: Triệu Ninh",
+      "=== SECTION: pending_hooks ===",
+      "| hook_id | start_chapter | type | status | last_advanced_chapter | expected_payoff | payoff_timing | depends_on | pays_off_in_arc | core_hook | half_life | notes |",
+      "|---|---|---|---|---|---|---|---|---|---|---|---|",
+      "| H001 | 0 | mystery | deferred | 0 | 20 | mid-arc | none | quyển 1 | true | 30 | manh mối đầu tiên |",
+    ].join("\n");
+    const chat = vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValueOnce({ content: initial, usage: ZERO_USAGE })
+      .mockResolvedValueOnce({ content: repaired, usage: ZERO_USAGE });
+
+    const output = await agent.generateFoundation(book);
+
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(output.storyFrame).toContain("Triệu Ninh");
+    expect(output.roles?.[0]?.name).toBe("Triệu Ninh");
+    expect(output.bookRules).toContain("## Nhân vật chính");
+    const firstMessages = chat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(firstMessages[0]?.content).toContain("Hán–Việt");
+    const repairMessages = chat.mock.calls[1]?.[0] as Array<{ role: string; content: string }>;
+    expect(repairMessages[0]?.content).toContain("final Vietnamese localization gate");
+  });
 });
