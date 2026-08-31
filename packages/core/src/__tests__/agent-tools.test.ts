@@ -343,6 +343,43 @@ describe("agent deterministic writing tools", () => {
     }
   });
 
+  it("forces Vietnamese in creation payloads for a Vietnamese Studio session", async () => {
+    const tool = createProposeActionTool("vi");
+
+    const result = await tool.execute("proposal-vi-book", {
+      action: "create_book",
+      instruction: "Tạo truyện huyền nghi đô thị lấy bối cảnh Trung Quốc.",
+      createBook: {
+        title: "Truyền nhân cuối cùng",
+        genre: "Huyền nghi đô thị",
+        language: "en",
+      },
+    });
+
+    expect(result.details).toMatchObject({
+      actionPayload: {
+        createBook: {
+          title: "Truyền nhân cuối cùng",
+          language: "vi",
+        },
+      },
+    });
+  });
+
+  it("rejects non-Vietnamese Play prose before showing a Vietnamese confirmation", async () => {
+    const tool = createProposeActionTool("vi");
+
+    await expect(tool.execute("proposal-vi-play-english", {
+      action: "play_start",
+      instruction: "Tạo một thế giới tương tác huyền nghi trong đô thị.",
+      playStart: {
+        title: "Đêm mưa",
+        premise: "The player investigates a haunted apartment in modern Shanghai.",
+        initialScene: "Rain strikes the window while an empty elevator stops outside.",
+      },
+    })).rejects.toThrow(/natural Vietnamese/);
+  });
+
   it("marks in-surface confirmation proposals when requested", async () => {
     const tool = createProposeActionTool("zh", { sameSession: true });
 
@@ -869,7 +906,7 @@ describe("agent deterministic writing tools", () => {
           title: "Truyền nhân cuối cùng",
           genre: "urban",
           platform: "tomato",
-          language: "vi",
+          language: "en",
         },
       },
     });
@@ -884,6 +921,10 @@ describe("agent deterministic writing tools", () => {
     expect(JSON.stringify(updates)).toContain("Đang khởi chạy kiến trúc sư");
     expect(JSON.stringify(updates)).toContain("nền tảng truyện");
     expect(JSON.stringify(result)).toContain("đã được khởi tạo thành công");
+    expect(pipeline.initBook).toHaveBeenCalledWith(
+      expect.objectContaining({ language: "vi" }),
+      expect.anything(),
+    );
   });
 
   it("derives the confirmed book id from the confirmed title instead of model-supplied bookId", async () => {

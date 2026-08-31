@@ -4,7 +4,7 @@ import type { PipelineRunner } from "../pipeline/runner.js";
 import { ArchitectIncompleteFoundationError } from "../agents/architect.js";
 import { type ReviseMode } from "../agents/reviser.js";
 import { defaultChapterLength } from "../utils/length-metrics.js";
-import { inferLanguage } from "../utils/language.js";
+import { inferLanguage, needsVietnameseOutputRepair } from "../utils/language.js";
 import { mkdir, readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { StateManager } from "../state/manager.js";
@@ -260,7 +260,8 @@ const ProposeActionParams = Type.Object({
     language: Type.Optional(Type.Union([
       Type.Literal("zh"),
       Type.Literal("en"),
-    ], { description: "Confirmed writing language." })),
+      Type.Literal("vi"),
+    ], { description: "Confirmed writing language. In a Vietnamese Studio session the host enforces vi." })),
     targetChapters: Type.Optional(Type.Number({
       description: "Confirmed total chapter count.",
     })),
@@ -284,7 +285,8 @@ const ProposeActionParams = Type.Object({
     language: Type.Optional(Type.Union([
       Type.Literal("zh"),
       Type.Literal("en"),
-    ], { description: "Output language of the short fiction. Fill the language the user asked the story to be written in; it may differ from the conversation language (e.g. a Chinese chat asking for an English short => en). When the user does not name one, it defaults to the conversation language." })),
+      Type.Literal("vi"),
+    ], { description: "Output language of the short fiction. It may differ from the conversation language, except that a Vietnamese Studio session enforces vi." })),
     chapters: Type.Optional(Type.Number({
       description: "Confirmed complete short chapter count, 12-18.",
     })),
@@ -391,7 +393,7 @@ const ProposeActionParams = Type.Object({
     platform: Type.Optional(Type.Union([
       Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
     ])),
-    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
     targetChapters: Type.Optional(Type.Number({ description: "Confirmed total chapter count." })),
     chapterWordCount: Type.Optional(Type.Number({ description: "Confirmed per-chapter length." })),
   }, { description: "Structured execution args for action=fanfic_init. This creates the book directly after confirmation." })),
@@ -405,7 +407,7 @@ const ProposeActionParams = Type.Object({
     platform: Type.Optional(Type.Union([
       Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
     ])),
-    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
     targetChapters: Type.Optional(Type.Number({ description: "Target total chapters for a new book." })),
     chapterWordCount: Type.Optional(Type.Number({ description: "Per-chapter length for a new book." })),
   }, { description: "Structured execution args for action=continuation_import. This imports and rebuilds state directly after confirmation." })),
@@ -417,7 +419,7 @@ const ProposeActionParams = Type.Object({
     platform: Type.Optional(Type.Union([
       Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
     ])),
-    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
     targetChapters: Type.Optional(Type.Number({ description: "Optional chapter count; defaults to the parent book." })),
     chapterWordCount: Type.Optional(Type.Number({ description: "Optional chapter length; defaults to the parent book." })),
   }, { description: "Structured execution args for action=spinoff_create. This creates the side-story directly after confirmation." })),
@@ -431,7 +433,7 @@ const ProposeActionParams = Type.Object({
     platform: Type.Optional(Type.Union([
       Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
     ])),
-    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+    language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
     targetChapters: Type.Optional(Type.Number({ description: "Confirmed total chapter count." })),
     chapterWordCount: Type.Optional(Type.Number({ description: "Confirmed per-chapter length." })),
   }, { description: "Structured execution args for action=style_imitation. This creates an original book and style guide directly after confirmation." })),
@@ -549,11 +551,13 @@ function proposedActionPayload(
   const payload: ActionPayload = {};
   if (params.action === "create_book") {
     const createBook = compactObject(params.createBook);
-    if (createBook) payload.createBook = createBook;
+    if (createBook) payload.createBook = language === "vi" ? { ...createBook, language: "vi" } : createBook;
   }
   if (params.action === "short_run") {
     const shortRun = compactObject(params.shortRun);
-    if (shortRun) payload.shortRun = { language, ...shortRun };
+    if (shortRun) payload.shortRun = language === "vi"
+      ? { ...shortRun, language: "vi" }
+      : { language, ...shortRun };
   }
   if (params.action === "play_start") {
     const playStart = compactPlayStartPayload(params.playStart);
@@ -581,19 +585,19 @@ function proposedActionPayload(
   }
   if (params.action === "fanfic_init") {
     const fanficCreate = compactObject(params.fanficCreate);
-    if (fanficCreate) payload.fanficCreate = fanficCreate;
+    if (fanficCreate) payload.fanficCreate = language === "vi" ? { ...fanficCreate, language: "vi" } : fanficCreate;
   }
   if (params.action === "continuation_import") {
     const continuationImport = compactObject(params.continuationImport);
-    if (continuationImport) payload.continuationImport = continuationImport;
+    if (continuationImport) payload.continuationImport = language === "vi" ? { ...continuationImport, language: "vi" } : continuationImport;
   }
   if (params.action === "spinoff_create") {
     const spinoffCreate = compactObject(params.spinoffCreate);
-    if (spinoffCreate) payload.spinoffCreate = spinoffCreate;
+    if (spinoffCreate) payload.spinoffCreate = language === "vi" ? { ...spinoffCreate, language: "vi" } : spinoffCreate;
   }
   if (params.action === "style_imitation") {
     const imitationCreate = compactObject(params.imitationCreate);
-    if (imitationCreate) payload.imitationCreate = imitationCreate;
+    if (imitationCreate) payload.imitationCreate = language === "vi" ? { ...imitationCreate, language: "vi" } : imitationCreate;
   }
   return Object.keys(payload).length > 0 ? payload : undefined;
 }
@@ -721,6 +725,47 @@ function assertExecutableProposedAction(params: ProposeActionParamsType, payload
   }
 }
 
+function assertVietnameseProposedSurface(
+  params: ProposeActionParamsType,
+  payload: ActionPayload | undefined,
+  language: "zh" | "en" | "vi",
+): void {
+  if (language !== "vi") return;
+  if (params.action !== "create_book" && params.action !== "short_run" && params.action !== "play_start") return;
+
+  const fields: Array<readonly [string, string | undefined]> = [
+    ["instruction", params.instruction],
+  ];
+  if (params.action === "create_book") {
+    fields.push(
+      ["createBook.title", payload?.createBook?.title],
+      ["createBook.genre", payload?.createBook?.genre],
+    );
+  } else if (params.action === "short_run") {
+    fields.push(
+      ["shortRun.title", payload?.shortRun?.title],
+      ["shortRun.direction", payload?.shortRun?.direction],
+    );
+  } else if (params.action === "play_start") {
+    const play = payload?.playStart;
+    fields.push(
+      ["playStart.title", play?.title],
+      ["playStart.premise", play?.premise],
+      ["playStart.worldContract", play?.worldContract],
+      ["playStart.visualContract", play?.visualContract],
+      ["playStart.initialScene", play?.initialScene],
+      ...(play?.suggestedActions ?? []).map((value, index) => [`playStart.suggestedActions[${index}]`, value] as const),
+    );
+  }
+
+  const invalid = fields.find(([, value]) => needsVietnameseOutputRepair(value));
+  if (invalid) {
+    throw new Error(
+      `Vietnamese Studio requires ${invalid[0]} to be natural Vietnamese without Chinese characters, Pinyin names, or English prose. Regenerate the complete proposed action in Vietnamese and set language=vi.`,
+    );
+  }
+}
+
 export function createProposeActionTool(
   language: "zh" | "en" | "vi" = "zh",
   options: ProposeActionToolOptions = {},
@@ -747,6 +792,7 @@ export function createProposeActionTool(
       }
       const actionPayload = proposedPayload.payload;
       assertExecutableProposedAction(params, actionPayload);
+      assertVietnameseProposedSurface(params, actionPayload, language);
       const requestedSkills = normalizeProposedSkillIds(options.requestedSkillIds?.());
       return textResult(
         [
@@ -817,6 +863,7 @@ const SubAgentParams = Type.Object({
   language: Type.Optional(Type.Union([
     Type.Literal("zh"),
     Type.Literal("en"),
+    Type.Literal("vi"),
   ], { description: "architect only: writing language. Default: zh" })),
   targetChapters: Type.Optional(Type.Number({ description: "architect only: total chapter count. Default: 200" })),
   chapterWordCount: Type.Optional(Type.Number({ description: "architect/writer: per-chapter length in the book's native unit (zh characters / en words). Default: 3000 zh, 2000 en" })),
@@ -862,6 +909,7 @@ const ArchitectCreateSubAgentParams = Type.Object({
   language: Type.Optional(Type.Union([
     Type.Literal("zh"),
     Type.Literal("en"),
+    Type.Literal("vi"),
   ], { description: "Confirmed writing language. Default: zh" })),
   targetChapters: Type.Optional(Type.Number({ description: "Confirmed total chapter count. Default: 200" })),
   chapterWordCount: Type.Optional(Type.Number({ description: "Confirmed per-chapter length in the book's native unit. Default: 3000 zh, 2000 en" })),
@@ -1025,7 +1073,9 @@ export function createSubAgentTool(
                 ? assertSafeBookId(bookId, "architect.bookId")
                 : deriveBookIdFromTitle(resolvedTitle) || `book-${Date.now().toString(36)}`;
             const now = new Date().toISOString();
-            const resolvedLanguage = createBookPayload?.language ?? language ?? inferLanguage(instruction);
+            const resolvedLanguage = sessionLanguage === "vi"
+              ? "vi"
+              : createBookPayload?.language ?? language ?? inferLanguage(instruction);
             progress(localized(
               `正在为“${id}”启动架构师……`,
               `Starting architect for book "${id}"...`,
@@ -1783,7 +1833,7 @@ const FanficCreateParams = Type.Object({
   platform: Type.Optional(Type.Union([
     Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
   ])),
-  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
   targetChapters: Type.Optional(Type.Integer({ minimum: 1 })),
   chapterWordCount: Type.Optional(Type.Integer({ minimum: 1 })),
 });
@@ -1843,7 +1893,7 @@ const SpinoffCreateParams = Type.Object({
   platform: Type.Optional(Type.Union([
     Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
   ])),
-  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
   targetChapters: Type.Optional(Type.Integer({ minimum: 1 })),
   chapterWordCount: Type.Optional(Type.Integer({ minimum: 1 })),
 });
@@ -1904,7 +1954,7 @@ const ImitationCreateParams = Type.Object({
   platform: Type.Optional(Type.Union([
     Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
   ])),
-  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
   targetChapters: Type.Optional(Type.Integer({ minimum: 1 })),
   chapterWordCount: Type.Optional(Type.Integer({ minimum: 1 })),
 });
@@ -1961,7 +2011,7 @@ const ContinuationImportParams = Type.Object({
   platform: Type.Optional(Type.Union([
     Type.Literal("tomato"), Type.Literal("qidian"), Type.Literal("feilu"), Type.Literal("other"),
   ])),
-  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en")])),
+  language: Type.Optional(Type.Union([Type.Literal("zh"), Type.Literal("en"), Type.Literal("vi")])),
   targetChapters: Type.Optional(Type.Integer({ minimum: 1 })),
   chapterWordCount: Type.Optional(Type.Integer({ minimum: 1 })),
 });
@@ -2135,7 +2185,9 @@ export function createShortFictionRunTool(
     ): Promise<AgentToolResult<unknown>> {
       const progress = (message: string) => onUpdate?.(textResult(message));
       const shortPayload = options.actionPayload?.shortRun;
-      const language = shortPayload?.language ?? options.language;
+      const language = options.language === "vi"
+        ? "vi"
+        : shortPayload?.language ?? options.language;
       const charsPerChapter = shortPayload?.charsPerChapter ?? params.charsPerChapter;
       const activatedSkills = resolveProductionToolSkills(options);
       assertShortRunCharsPerChapter(charsPerChapter, language ?? "zh");
@@ -2682,6 +2734,8 @@ type PlayStartParamsType = Static<typeof PlayStartParams>;
 
 export interface PlayStartToolOptions extends SkillAwareProductionOptions {
   readonly actionPayload?: ActionPayload;
+  /** Host-owned Studio/project language. Vietnamese is never inferred from model prose. */
+  readonly language?: "zh" | "en" | "vi";
   readonly runnerFactory?: (input: {
     readonly projectRoot: string;
     readonly worldId: string;
@@ -2712,7 +2766,7 @@ export function createPlayStartTool(
       onUpdate?: AgentToolUpdateCallback,
     ): Promise<AgentToolResult<unknown>> {
       _signal?.throwIfAborted();
-      onUpdate?.(textResult("Starting interactive world..."));
+      onUpdate?.(textResult(options.language === "vi" ? "Đang khởi động thế giới tương tác…" : "Starting interactive world..."));
       if (!pipeline) {
         throw new Error("play_start requires an initialized InkOS pipeline to create authoritative world state.");
       }
@@ -2729,7 +2783,22 @@ export function createPlayStartTool(
       const worldContract = playPayload?.worldContract ?? params.worldContract;
       const visualContract = playPayload?.visualContract ?? params.visualContract;
       const initialScene = playPayload?.initialScene?.trim() || params.initialScene;
-      const playLanguage = inferLanguage([title, premise, worldContract, visualContract, initialScene].filter(Boolean).join("\n"));
+      const playLanguage = options.language
+        ?? inferLanguage([title, premise, worldContract, visualContract, initialScene].filter(Boolean).join("\n"));
+      if (playLanguage === "vi") {
+        const invalidField = [
+          ["title", title],
+          ["premise", premise],
+          ["worldContract", worldContract],
+          ["visualContract", visualContract],
+          ["initialScene", initialScene],
+        ].find(([, value]) => needsVietnameseOutputRepair(value));
+        if (invalidField) {
+          throw new Error(
+            `Thế giới tiếng Việt chứa nội dung chưa được Việt hoá tại ${invalidField[0]}. Hãy tạo lại toàn bộ tiêu đề, mô tả, bối cảnh, tên riêng Trung Quốc và cảnh mở đầu bằng tiếng Việt tự nhiên.`,
+          );
+        }
+      }
       const existingWorld = await store.loadWorld(worldId);
       const world = await store.createWorld({
         id: worldId,
@@ -2743,9 +2812,11 @@ export function createPlayStartTool(
       await store.ensureRun(world.id, runId);
 
       const existingTranscript = await store.readTranscript(world.id, runId);
-      const sceneText = (initialScene?.trim() || (world.language !== "zh"
-        ? [`You enter "${world.title}".`, world.premise || "The scene is set. Make your first move."].join("\n")
-        : [`你进入「${world.title}」。`, world.premise || "场景已经就位，等待你的第一个动作。"].join("\n"))).trim();
+      const sceneText = (initialScene?.trim() || (world.language === "vi"
+        ? [`Bạn bước vào “${world.title}”.`, world.premise || "Khung cảnh đã sẵn sàng, chờ hành động đầu tiên của bạn."].join("\n")
+        : world.language === "en"
+          ? [`You enter "${world.title}".`, world.premise || "The scene is set. Make your first move."].join("\n")
+          : [`你进入「${world.title}」。`, world.premise || "场景已经就位，等待你的第一个动作。"].join("\n"))).trim();
       const suggestedActions = normalizeSuggestedActions(playPayload?.suggestedActions ?? params.suggestedActions);
       let seed: PlayOpeningSeedResult | null = null;
       let graph;
@@ -2782,9 +2853,11 @@ export function createPlayStartTool(
 
         if (!graph?.entities?.some((entity) => entity.id === "actor_player")
           || !graph.entities.some((entity) => entity.id !== "actor_player")) {
-          throw new Error(world.language !== "zh"
-            ? "Play opening state is incomplete: no usable player/world graph was created."
-            : "互动世界开场状态不完整：没有生成可用的玩家与世界图谱。");
+          throw new Error(world.language === "vi"
+            ? "Trạng thái mở đầu chưa hoàn chỉnh: chưa tạo được đồ thị người chơi/thế giới khả dụng."
+            : world.language === "en"
+              ? "Play opening state is incomplete: no usable player/world graph was created."
+              : "互动世界开场状态不完整：没有生成可用的玩家与世界图谱。");
         }
 
         if (existingTranscript.length === 0) {

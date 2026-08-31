@@ -276,3 +276,25 @@ describe("English UI (app language = en)", () => {
     expect(foundationFileLabel("outline/story_frame.md")).toBe("故事基石");
   });
 });
+
+describe("Vietnamese UI (app language = vi)", () => {
+  afterEach(() => {
+    setAppLanguage("zh");
+  });
+
+  it("uses Vietnamese labels for foundation files and frontmatter cards", () => {
+    setAppLanguage("vi");
+
+    expect(foundationFileLabel("outline/story_frame.md")).toBe("Nền tảng câu chuyện");
+    expect(foundationFileLabel("outline/volume_map.md")).toBe("Kế hoạch các tập");
+    expect(frontmatterToCards({
+      protagonist: { name: "Thẩm Vũ" },
+      genreLock: { primary: "Huyền nghi đô thị" },
+      prohibitions: ["Không phá vỡ giới hạn cảnh giới"],
+    })).toEqual([
+      { label: "Nhân vật chính", values: ["Thẩm Vũ"] },
+      { label: "Thể loại", values: ["Huyền nghi đô thị"] },
+      { label: "Giới hạn bắt buộc", values: ["Không phá vỡ giới hạn cảnh giới"] },
+    ]);
+  });
+});

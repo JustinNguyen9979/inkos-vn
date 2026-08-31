@@ -1274,7 +1274,7 @@ async function executeConfirmedProductionAction(args: {
       title,
       ...(payload?.genre ? { genre: payload.genre } : {}),
       ...(payload?.platform ? { platform: payload.platform } : {}),
-      language: payload?.language ?? lang,
+      language: lang === "vi" ? "vi" : payload?.language ?? lang,
       ...(payload?.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload?.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };
@@ -1284,7 +1284,7 @@ async function executeConfirmedProductionAction(args: {
     if (!direction) throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认短篇缺少方向，请重新生成确认卡。", "The short fiction confirmation is missing a direction. Regenerate the confirmation card."));
     tool = createShortFictionRunTool(args.pipeline, args.root, {
       actionPayload,
-      language: lang,
+      language: lang === "vi" ? "vi" : payload?.language ?? lang,
       defaultSkills: productionSkills("shortWriting"),
     });
     params = {
@@ -1418,7 +1418,11 @@ async function executeConfirmedProductionAction(args: {
       mode: payload.mode ?? "canon",
       ...(payload.genre ? { genre: payload.genre } : {}),
       ...(payload.platform ? { platform: payload.platform } : {}),
-      language: payload.language ?? lang,
+      ...(lang === "vi"
+        ? { language: "vi" as const }
+        : payload?.language
+          ? { language: payload.language }
+          : {}),
       ...(payload.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };
@@ -1440,7 +1444,7 @@ async function executeConfirmedProductionAction(args: {
       ...(payload?.resumeFrom ? { resumeFrom: payload.resumeFrom } : {}),
       ...(payload?.genre ? { genre: payload.genre } : {}),
       ...(payload?.platform ? { platform: payload.platform } : {}),
-      language: payload?.language ?? lang,
+      language: lang === "vi" ? "vi" : payload?.language ?? lang,
       ...(payload?.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload?.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };
@@ -1457,7 +1461,11 @@ async function executeConfirmedProductionAction(args: {
       ...(payload?.direction ? { direction: payload.direction } : {}),
       ...(payload?.genre ? { genre: payload.genre } : {}),
       ...(payload?.platform ? { platform: payload.platform } : {}),
-      ...(payload?.language ? { language: payload.language } : {}),
+      ...(lang === "vi"
+        ? { language: "vi" as const }
+        : payload?.language
+          ? { language: payload.language }
+          : {}),
       ...(payload?.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload?.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };
@@ -1479,7 +1487,7 @@ async function executeConfirmedProductionAction(args: {
       ...(payload.sourceName ? { sourceName: payload.sourceName } : {}),
       ...(payload.genre ? { genre: payload.genre } : {}),
       ...(payload.platform ? { platform: payload.platform } : {}),
-      language: payload.language ?? lang,
+      language: lang === "vi" ? "vi" : payload.language ?? lang,
       ...(payload.targetChapters ? { targetChapters: payload.targetChapters } : {}),
       ...(payload.chapterWordCount ? { chapterWordCount: payload.chapterWordCount } : {}),
     };
@@ -1500,6 +1508,7 @@ async function executeConfirmedProductionAction(args: {
       : undefined;
     tool = createPlayStartTool(args.pipeline, args.root, args.sessionId, args.playMode, {
       actionPayload: confirmedActionPayload,
+      ...(lang === "vi" ? { language: "vi" as const } : {}),
       defaultSkills: productionSkills("play"),
     });
     params = {
@@ -2846,8 +2855,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       blurb?: string;
     }>();
 
+    const projectLanguage = await currentProjectLanguage();
+    const requestedLanguage = isStudioLanguage(body.language) ? body.language : undefined;
+    const writingLanguage = projectLanguage === "vi"
+      ? "vi"
+      : requestedLanguage ?? projectLanguage;
+    const normalizedBody = { ...body, language: writingLanguage };
     const now = new Date().toISOString();
-    const bookConfig = buildStudioBookConfig(body, now);
+    const bookConfig = buildStudioBookConfig(normalizedBody, now);
     const bookId = bookConfig.id;
     const bookDir = state.bookDir(bookId);
 
@@ -2869,7 +2884,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         intent: "create_book",
         title: body.title,
         genre: body.genre,
-        language: body.language === "vi" ? "vi" : body.language === "en" ? "en" : body.language === "zh" ? "zh" : undefined,
+        language: writingLanguage,
         platform: body.platform,
         chapterWordCount: body.chapterWordCount,
         targetChapters: body.targetChapters,
@@ -4708,10 +4723,17 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           : activeBookConfig?.language === "zh"
             ? "zh"
             : undefined;
-      const requestedLanguage = actionPayload?.shortRun?.language ?? actionPayload?.createBook?.language;
-      const unboundLanguage = actionPayload?.shortRun
-        ? (requestedLanguage ?? inferLanguage(instruction))
-        : (requestedLanguage ?? configLanguage);
+      const requestedLanguage = actionPayload?.shortRun?.language
+        ?? actionPayload?.createBook?.language
+        ?? actionPayload?.fanficCreate?.language
+        ?? actionPayload?.continuationImport?.language
+        ?? actionPayload?.spinoffCreate?.language
+        ?? actionPayload?.imitationCreate?.language;
+      const unboundLanguage = configLanguage === "vi"
+        ? "vi"
+        : actionPayload?.shortRun
+          ? (requestedLanguage ?? inferLanguage(instruction))
+          : (requestedLanguage ?? configLanguage);
       const surfaceLanguage = agentBookId
         ? (bookLanguage ?? configLanguage)
         : unboundLanguage;

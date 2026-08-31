@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   inferLanguage,
+  needsVietnameseOutputRepair,
   usesWordBasedLength,
   withVietnameseOutputContract,
 } from "../utils/language.js";
@@ -49,5 +50,12 @@ describe("inferLanguage", () => {
     expect(inferLanguage("")).toBe("zh");
     expect(inferLanguage(undefined)).toBe("zh");
     expect(inferLanguage(null)).toBe("zh");
+  });
+
+  it("detects Chinese, Pinyin, and English prose that leaks into Vietnamese output", () => {
+    expect(needsVietnameseOutputRepair("世界观与核心设定")).toBe(true);
+    expect(needsVietnameseOutputRepair("Shen Yu enters the haunted apartment.")).toBe(true);
+    expect(needsVietnameseOutputRepair("The character enters a haunted apartment.")).toBe(true);
+    expect(needsVietnameseOutputRepair("Thẩm Vũ bước vào căn hộ bị ám.")).toBe(false);
   });
 });

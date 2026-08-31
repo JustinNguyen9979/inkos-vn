@@ -219,9 +219,11 @@ export class PlayRunner {
     if (finalMutation.blocked || !isOpeningGraphReady(seededGraph)) {
       throw new PlayOpeningSeedError(
         finalMutation.blockedReason
-          || (language !== "zh"
-            ? "The opening scene did not produce a usable player/world graph. Retry world creation."
-            : "开场没有生成可用的玩家与世界图谱，请重试创建互动世界。"),
+          || (language === "vi"
+            ? "Cảnh mở đầu chưa tạo được đồ thị người chơi/thế giới khả dụng. Hãy tạo lại thế giới."
+            : language === "en"
+              ? "The opening scene did not produce a usable player/world graph. Retry world creation."
+              : "开场没有生成可用的玩家与世界图谱，请重试创建互动世界。"),
       );
     }
     await this.store.writeProjection(this.options.worldId, this.options.runId, "projections/state.md", renderStateBrief({ action, mutation: finalMutation }));

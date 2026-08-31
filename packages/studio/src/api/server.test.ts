@@ -2793,6 +2793,29 @@ describe("createStudioServer daemon lifecycle", () => {
     }));
   });
 
+  it("forces vi for direct book creation when the project language is Vietnamese", async () => {
+    const vietnameseConfig = { ...cloneProjectConfig(), language: "vi" as const };
+    await writeFile(join(root, "inkos.json"), JSON.stringify(vietnameseConfig, null, 2), "utf-8");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(vietnameseConfig as never, root);
+
+    const response = await app.request("http://localhost/api/v1/books/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Truyền nhân cuối cùng",
+        genre: "Huyền nghi đô thị",
+        language: "en",
+        blurb: "Viết hoàn toàn bằng tiếng Việt tự nhiên.",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(processProjectInteractionRequestMock).toHaveBeenCalledWith(expect.objectContaining({
+      request: expect.objectContaining({ language: "vi" }),
+    }));
+  });
+
   it("creates books with Studio Ollama config without requiring an API key", async () => {
     await writeFile(join(root, "inkos.json"), JSON.stringify({
       ...projectConfig,
@@ -3350,6 +3373,49 @@ describe("createStudioServer daemon lifecycle", () => {
     await expect(response.json()).resolves.toMatchObject({
       session: { activeBookId: "夜间派送" },
     });
+  });
+
+  it("ignores an English model payload when confirmed creation runs in a Vietnamese project", async () => {
+    const vietnameseConfig = { ...cloneProjectConfig(), language: "vi" as const };
+    await writeFile(join(root, "inkos.json"), JSON.stringify(vietnameseConfig, null, 2), "utf-8");
+    loadBookSessionMock.mockResolvedValueOnce({
+      sessionId: "vietnamese-book-session",
+      bookId: null,
+      sessionKind: "book-create",
+      title: null,
+      messages: [],
+      events: [],
+      draftRounds: [],
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(vietnameseConfig as never, root);
+
+    const response = await app.request("http://localhost/api/v1/agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction: "Tạo truyện huyền nghi đô thị bằng tiếng Việt.",
+        sessionId: "vietnamese-book-session",
+        sessionKind: "book-create",
+        actionSource: "button",
+        requestedIntent: "create_book",
+        actionPayload: {
+          createBook: {
+            title: "Truyền nhân cuối cùng",
+            genre: "Huyền nghi đô thị",
+            language: "en",
+          },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(initBookMock).toHaveBeenCalledWith(
+      expect.objectContaining({ language: "vi" }),
+      expect.objectContaining({ externalContext: expect.stringContaining("tiếng Việt") }),
+    );
   });
 
   it("executes confirmed derivative works as typed tools and binds their real book artifacts", async () => {
@@ -4740,6 +4806,49 @@ describe("createStudioServer daemon lifecycle", () => {
       worldContract: expect.stringContaining("行动语义推进"),
       visualContract: expect.stringContaining("证据可信度"),
     });
+  });
+
+  it("persists vi for a confirmed Play world in a Vietnamese project", async () => {
+    const vietnameseConfig = { ...cloneProjectConfig(), language: "vi" as const };
+    await writeFile(join(root, "inkos.json"), JSON.stringify(vietnameseConfig, null, 2), "utf-8");
+    const playSession = {
+      sessionId: "play-session-vi",
+      bookId: null,
+      sessionKind: "play",
+      playMode: "open",
+      title: null,
+      messages: [],
+      events: [],
+      draftRounds: [],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    loadBookSessionMock.mockResolvedValueOnce(playSession).mockResolvedValueOnce(playSession);
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(vietnameseConfig as never, root);
+
+    const response = await app.request("http://localhost/api/v1/agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction: "Khởi động đêm ở chung cư.",
+        sessionId: "play-session-vi",
+        sessionKind: "play",
+        actionSource: "button",
+        requestedIntent: "play_start",
+        actionPayload: {
+          playStart: {
+            title: "Đêm ở chung cư",
+            premise: "Tôi điều tra một căn hộ bị ám giữa Thượng Hải hiện đại.",
+            initialScene: "Mưa quất vào cửa kính khi chiếc thang máy trống không dừng trước mặt tôi.",
+          },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const world = JSON.parse(await readFile(join(root, "worlds", "play-session-vi", "world.json"), "utf-8")) as { language: string };
+    expect(world.language).toBe("vi");
   });
 
   it("preserves the confirmed play-start scene without guessing whether its prose is complete", async () => {

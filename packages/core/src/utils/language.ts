@@ -10,6 +10,7 @@ const VIETNAMESE_ASCII_WORDS = new Set([
   "cua", "trong", "nguoi", "nay", "roi", "nhung", "hay", "viet", "truyen", "chuong",
   "cho", "ve", "mot",
 ]);
+const PINYIN_PERSON_NAME_RE = /\b(?:Zhao|Zhang|Wang|Liu|Chen|Yang|Huang|Zhou|Xu|Sun|Ma|Zhu|Hu|Guo|Gao|Luo|Zheng|Liang|Xie|Song|Tang|Deng|Han|Cao|Peng|Xiao|Tian|Dong|Pan|Yuan|Cai|Jiang|Shen|Ren|Fang|Duan|Qiao)\s+[A-Z][a-z]+\b/;
 
 export function isVietnameseLanguage(language?: string | null): language is "vi" {
   return language === "vi";
@@ -24,6 +25,20 @@ export function usesWordBasedLength(language?: string | null): boolean {
 export function withVietnameseOutputContract(prompt: string, language?: string | null): string {
   if (language !== "vi") return prompt;
   return `${prompt}\n\n## Vietnamese language and prose contract (mandatory)\n\n- Write all narrative prose, dialogue, descriptions, plans, summaries, reader-facing Markdown headings, labels, and natural-language field values in Vietnamese. Do not leave reader-facing headings or labels in English or Chinese.\n- Follow the user's Vietnamese register and voice: preserve their level of formality, regional flavor, rhythm, point of view, and preferred forms of address when supplied.\n- Use natural Vietnamese syntax and cadence. Do not translate English or Chinese sentence structures literally; avoid stiff machine-translated phrasing and unnecessary English jargon.\n- Keep Vietnamese pronouns and kinship terms consistent with age, status, intimacy, conflict, and scene context. Dialogue must sound speakable to a Vietnamese reader.\n- Preserve canon facts, terminology, Markdown structure, machine-readable keys, exact parser markers, IDs, and tool schemas. Only parser-required markers and keys may remain in their specified language.\n- For a story set in China, render newly generated and source Chinese personal names, place names, sects, organizations, titles, and culturally established names using their conventional Vietnamese/Hán–Việt readings. Use forms such as \"Triệu Ninh\", \"Bắc Kinh\", or \"Thượng Hải\" in reader-facing text, never Pinyin forms such as \"Zhao Ning\", \"Beijing\", or \"Shanghai\". Choose one unambiguous Hán–Việt form for each entity and keep it consistent everywhere. Preserve non-Chinese proper names unless the user asks otherwise.\n- When a machine schema contains a language or output-language field for this Vietnamese writing task, set it to \"vi\".\n- When the user provides a style sample or existing Vietnamese chapters, treat their vocabulary, sentence length, imagery density, dialogue rhythm, and narrative distance as the primary style reference. Do not homogenize them into generic web-fiction prose.\n- Unless explicitly requested otherwise, never switch the creative output to English or Chinese merely because the control instructions use those languages.`;
+}
+
+/**
+ * Detect reader-facing text that must go through the Vietnamese repair gate.
+ * Short non-Chinese proper names are allowed, while Chinese characters, common
+ * Pinyin personal names, and English prose are rejected.
+ */
+export function needsVietnameseOutputRepair(text?: string | null): boolean {
+  const value = text?.trim() ?? "";
+  if (!value) return false;
+  if (/[一-鿿]/u.test(value) || PINYIN_PERSON_NAME_RE.test(value)) return true;
+
+  const words = value.match(/[A-Za-zÀ-ỹĐđ]+/gu) ?? [];
+  return words.length >= 4 && inferLanguage(value) === "en";
 }
 
 /**

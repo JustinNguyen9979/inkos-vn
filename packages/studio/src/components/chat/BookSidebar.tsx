@@ -15,7 +15,7 @@ import { CharacterSection } from "../sidebar/CharacterSection";
 import { FrontmatterCards } from "../sidebar/FrontmatterCards";
 import { PendingHooksView } from "../sidebar/PendingHooksView";
 import {
-  FOUNDATION_FILE_LABELS,
+  foundationFileLabel,
   frontmatterToCards,
   hasTableRows,
   presentCurrentState,
@@ -39,7 +39,7 @@ const streamdownPlugins = { cjk };
 // character's name, foundation files their friendly label, everything else its
 // path as a last resort.
 function artifactLabel(file: string): string {
-  return roleFromPath(file)?.name ?? FOUNDATION_FILE_LABELS[file] ?? file;
+  return roleFromPath(file)?.name ?? foundationFileLabel(file) ?? file;
 }
 
 // Read-mode body for an opened file. A few files need reader-friendly handling
@@ -59,7 +59,10 @@ function renderTruthBody(
     const { isEmpty, body: stateBody } = presentCurrentState(content);
     return isEmpty ? (
       <p className="text-[14px] leading-6 text-muted-foreground/60 italic">
-        还没有运行状态。开始写作后，每写完一章这里会自动记录最新的故事进展。
+        {tr(
+          "还没有运行状态。开始写作后，每写完一章这里会自动记录最新的故事进展。",
+          "No runtime state yet. After writing starts, the latest story progress will be recorded here after every chapter.",
+        )}
       </p>
     ) : (
       <Streamdown plugins={streamdownPlugins} mode="static">{stateBody}</Streamdown>
@@ -68,7 +71,10 @@ function renderTruthBody(
   if (file === "emotional_arcs.md" && !hasTableRows(content)) {
     return (
       <p className="text-[14px] leading-6 text-muted-foreground/60 italic">
-        还没有情感弧线记录。开始写作后，这里会记录角色在各章的情绪变化。
+        {tr(
+          "还没有情感弧线记录。开始写作后，这里会记录角色在各章的情绪变化。",
+          "No emotional-arc records yet. After writing starts, character emotions will be tracked here chapter by chapter.",
+        )}
       </p>
     );
   }

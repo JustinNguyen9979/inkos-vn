@@ -10,7 +10,7 @@ import {
   type PlayMutationInput,
 } from "../models/play.js";
 import { appendPromptPackGuidance } from "../prompts/prompt-pack.js";
-import { withVietnameseOutputContract } from "../utils/language.js";
+import { needsVietnameseOutputRepair, withVietnameseOutputContract } from "../utils/language.js";
 
 export interface PlayActionInterpreterInput {
   readonly input: string;
@@ -57,6 +57,38 @@ const PlaySceneRenderSchema = z.object({
   suggestedActions: z.array(z.string().min(1)).min(0).max(4).default([]),
 });
 export type PlaySceneRender = z.infer<typeof PlaySceneRenderSchema>;
+
+function unknownNeedsVietnameseRepair(value: unknown): boolean {
+  if (typeof value === "string") return needsVietnameseOutputRepair(value);
+  if (Array.isArray(value)) return value.some(unknownNeedsVietnameseRepair);
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(unknownNeedsVietnameseRepair);
+  }
+  return false;
+}
+
+function worldMutationNeedsVietnameseRepair(raw: Record<string, unknown>): boolean {
+  const entities = Array.isArray(raw.entities) ? raw.entities as Array<Record<string, unknown>> : [];
+  const stateSlots = Array.isArray(raw.stateSlots) ? raw.stateSlots as Array<Record<string, unknown>> : [];
+  const expiredEdges = Array.isArray(raw.expiredEdges) ? raw.expiredEdges as Array<Record<string, unknown>> : [];
+  const evidenceTransitions = Array.isArray(raw.evidenceTransitions)
+    ? raw.evidenceTransitions as Array<Record<string, unknown>>
+    : [];
+  return unknownNeedsVietnameseRepair([
+    raw.summary,
+    raw.timeAdvance,
+    raw.blockedReason,
+    raw.notes,
+    ...entities.map((entity) => [entity.label, entity.summary, entity.status]),
+    ...stateSlots.map((slot) => [slot.label, slot.value]),
+    ...expiredEdges.map((edge) => edge.reason),
+    ...evidenceTransitions.map((transition) => transition.reason),
+  ]);
+}
+
+function sceneNeedsVietnameseRepair(scene: PlaySceneRender): boolean {
+  return unknownNeedsVietnameseRepair([scene.sceneText, scene.suggestedActions]);
+}
 
 const PlayEntityResultSchema = Type.Object({
   id: Type.Optional(Type.String()),
@@ -232,6 +264,15 @@ export class PlayWorldMutatorAgent extends BaseAgent {
           WORLD_MUTATION_TOOL,
           { temperature: 0.25, maxTokens: 4096 },
         ));
+        if (language === "vi" && worldMutationNeedsVietnameseRepair(raw)) {
+          if (attempt === 0) {
+            messages.push({
+              role: "user",
+              content: "Kết quả vừa rồi còn chứa tiếng Trung, tên Bính âm hoặc văn xuôi tiếng Anh. Hãy gọi lại submit_world_mutation và viết mọi nhãn, tên, mô tả, tóm tắt, trạng thái, ghi chú cùng giá trị ngôn ngữ tự nhiên bằng tiếng Việt; tên riêng Trung Quốc phải dùng âm Hán–Việt. Chỉ giữ khóa schema, ID và enum máy ở dạng quy định.",
+            });
+          }
+          continue;
+        }
         const mutation = mutationFromStructuredResult(raw, input.turn, actionKind);
         logDroppedMutationItems(raw, mutation, input.turn);
         if (hasMutationResult(mutation)) return mutation;
@@ -250,9 +291,11 @@ export class PlayWorldMutatorAgent extends BaseAgent {
 
     return withHostMutationIdentity(PlayMutationSchema.parse({
       blocked: true,
-      blockedReason: language !== "zh"
-        ? "The model did not return a usable world-state transition. This turn did not advance."
-        : "模型没有返回可用的世界状态变更，本回合未推进。",
+      blockedReason: language === "vi"
+        ? "Mô hình không trả về thay đổi trạng thái thế giới hợp lệ bằng tiếng Việt. Lượt này chưa được tiếp diễn."
+        : language === "en"
+          ? "The model did not return a usable world-state transition. This turn did not advance."
+          : "模型没有返回可用的世界状态变更，本回合未推进。",
     }), input.turn, actionKind);
   }
 }
@@ -352,12 +395,22 @@ export class PlaySceneRendererAgent extends BaseAgent {
       { role: "system", content: withVietnameseOutputContract(systemPrompt, input.language) },
       { role: "user", content: buildSceneRendererUserPrompt(input, language) },
     ];
-    const raw = await chatWithRetry(() => this.submitStructured(
-      messages,
-      PLAY_SCENE_RENDER_TOOL,
-      { temperature: 0.45, maxTokens: 4096 },
-    ));
-    return PlaySceneRenderSchema.parse(raw);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const raw = await chatWithRetry(() => this.submitStructured(
+        messages,
+        PLAY_SCENE_RENDER_TOOL,
+        { temperature: 0.45, maxTokens: 4096 },
+      ));
+      const scene = PlaySceneRenderSchema.parse(raw);
+      if (language !== "vi" || !sceneNeedsVietnameseRepair(scene)) return scene;
+      if (attempt === 0) {
+        messages.push({
+          role: "user",
+          content: "Cảnh vừa rồi chưa thuần Việt. Hãy gọi lại submit_play_scene; toàn bộ lời kể, hội thoại, mô tả, tên riêng Trung Quốc và hành động gợi ý phải là tiếng Việt tự nhiên, dùng âm Hán–Việt thay cho chữ Hán hoặc Bính âm. Không để lại văn xuôi tiếng Anh.",
+        });
+      }
+    }
+    throw new Error("Không thể tạo cảnh tương tác thuần Việt sau bước sửa ngôn ngữ.");
   }
 }
 
@@ -379,16 +432,27 @@ export class PlaySceneReconcilerAgent extends BaseAgent {
       { role: "system", content: withVietnameseOutputContract(buildSceneReconcilerSystemPrompt(language), language) },
       { role: "user", content: buildSceneReconcilerUserPrompt(input, language) },
     ];
-    try {
-      const raw = await chatWithRetry(() => this.submitStructured(
-        messages,
-        GRAPH_RECONCILIATION_TOOL,
-        { temperature: 0.1, maxTokens: 2048 },
-      ));
-      return mutationFromStructuredResult(raw, input.turn, actionKind);
-    } catch {
-      return empty;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const raw = await chatWithRetry(() => this.submitStructured(
+          messages,
+          GRAPH_RECONCILIATION_TOOL,
+          { temperature: 0.1, maxTokens: 2048 },
+        ));
+        if (language !== "vi" || !worldMutationNeedsVietnameseRepair(raw)) {
+          return mutationFromStructuredResult(raw, input.turn, actionKind);
+        }
+        if (attempt === 0) {
+          messages.push({
+            role: "user",
+            content: "Phần đối soát đồ thị còn chứa nội dung chưa thuần Việt. Hãy gọi lại submit_graph_reconciliation và viết mọi nhãn, mô tả, trạng thái cùng ghi chú bằng tiếng Việt; tên riêng Trung Quốc phải dùng âm Hán–Việt. Giữ nguyên ID, khóa schema và enum máy.",
+          });
+        }
+      } catch {
+        return empty;
+      }
     }
+    return empty;
   }
 }
 

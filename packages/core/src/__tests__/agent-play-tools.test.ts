@@ -169,6 +169,34 @@ describe("agent play tools", () => {
     });
   });
 
+  it("uses the host-owned Vietnamese language and blocks untranslated Play input", async () => {
+    const sessionId = "1700000000000-vi-language";
+    const tool = createReadyPlayStartTool(root, sessionId, undefined, { language: "vi" });
+
+    await expect(tool.execute("tc-start-vi-language", {
+      title: "Đêm ở chung cư",
+      premise: "The player investigates a haunted apartment in modern Shanghai.",
+      initialScene: "Rain hits the window while an empty elevator opens outside.",
+    } as any)).rejects.toThrow(/chưa được Việt hoá/);
+
+    const store = new PlayStore(root);
+    await expect(store.loadWorld(sessionId)).resolves.toBeNull();
+  });
+
+  it("persists vi as the Play world language when Vietnamese is host-owned", async () => {
+    const sessionId = "1700000000000-vi-world";
+    const tool = createReadyPlayStartTool(root, sessionId, undefined, { language: "vi" });
+
+    await tool.execute("tc-start-vi-world", {
+      title: "Đêm ở chung cư",
+      premise: "Người chơi điều tra một căn hộ bị ám giữa Thượng Hải hiện đại.",
+      initialScene: "Mưa quất vào cửa kính khi chiếc thang máy trống không dừng trước mặt tôi.",
+    } as any);
+
+    const store = new PlayStore(root);
+    await expect(store.loadWorld(sessionId)).resolves.toMatchObject({ language: "vi" });
+  });
+
   it("uses confirmed action-payload contracts over model tool params", async () => {
     const sessionId = "1700000000000-contract-payload";
     const tool = createReadyPlayStartTool(root, sessionId, undefined, {

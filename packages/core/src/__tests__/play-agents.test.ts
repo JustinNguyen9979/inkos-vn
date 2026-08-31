@@ -87,6 +87,31 @@ describe("play agents", () => {
     expect(mutation.entities.upsert[0]?.label).toBe("哮喘儿童");
   });
 
+  it("repairs English world-state prose before accepting Vietnamese output", async () => {
+    const agent = new PlayWorldMutatorAgent(ctx);
+    const submit = vi.spyOn(agent as any, "submitStructured")
+      .mockResolvedValueOnce({
+        summary: "The player discovers an old talisman inside the apartment.",
+        entities: [{ id: "item_talisman", type: "item", label: "Old talisman", summary: "A damaged paper talisman." }],
+      })
+      .mockResolvedValueOnce({
+        summary: "Người chơi phát hiện một lá bùa cũ trong căn hộ.",
+        entities: [{ id: "item_talisman", type: "item", label: "Lá bùa cũ", summary: "Một lá bùa giấy đã hư hại." }],
+      });
+
+    const mutation = await agent.proposeMutation({
+      turn: 1,
+      input: "Tôi kiểm tra ngăn kéo.",
+      action: { actionKind: "look", intent: "Kiểm tra ngăn kéo" },
+      context: "Tôi đang đứng trong căn hộ bỏ hoang.",
+      language: "vi",
+    });
+
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(mutation.summary).toContain("Người chơi");
+    expect(mutation.entities.upsert[0]?.label).toBe("Lá bùa cũ");
+  });
+
   it("returns a visible blocked no-op when mutator repair still has no state result", async () => {
     const agent = new PlayWorldMutatorAgent(ctx);
     const submit = vi.spyOn(agent as any, "submitStructured").mockResolvedValue({});
@@ -271,6 +296,31 @@ describe("play agents", () => {
     expect(user).toContain("本回合前的权威上下文");
     expect(user).toContain("actor_husband [actor]: 丈夫");
     expect(submit.mock.calls[0]?.[1]).toMatchObject({ name: "submit_play_scene" });
+  });
+
+  it("repairs English scene prose before returning a Vietnamese Play turn", async () => {
+    const agent = new PlaySceneRendererAgent(ctx);
+    const submit = vi.spyOn(agent as any, "submitStructured")
+      .mockResolvedValueOnce({
+        sceneText: "Rain strikes the window while the empty elevator opens outside.",
+        suggestedActions: ["Inspect the elevator"],
+      })
+      .mockResolvedValueOnce({
+        sceneText: "Mưa quất vào cửa kính khi chiếc thang máy trống không mở ra ngoài hành lang.",
+        suggestedActions: ["Kiểm tra thang máy"],
+      });
+
+    await expect(agent.render({
+      input: "Tôi nhìn ra hành lang.",
+      action: { actionKind: "look", intent: "Quan sát hành lang" },
+      mutationSummary: "Thang máy đã dừng ở tầng này.",
+      stateBrief: "Cửa căn hộ vẫn khóa.",
+      language: "vi",
+    })).resolves.toMatchObject({
+      sceneText: expect.stringContaining("Mưa quất"),
+      suggestedActions: ["Kiểm tra thang máy"],
+    });
+    expect(submit).toHaveBeenCalledTimes(2);
   });
 
   it("loads project Play prompt-pack overrides into the renderer system prompt", async () => {

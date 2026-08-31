@@ -152,13 +152,27 @@ const FOUNDATION_FILE_LABELS_EN: Record<string, string> = {
   "book_rules.md": "Narrative Rules",
 };
 
+const FOUNDATION_FILE_LABELS_VI: Record<string, string> = {
+  "outline/story_frame.md": "Nền tảng câu chuyện",
+  "outline/volume_map.md": "Kế hoạch các tập",
+  "current_state.md": "Trạng thái hiện tại",
+  "pending_hooks.md": "Các nút thắt đang mở",
+  "emotional_arcs.md": "Diễn tiến cảm xúc",
+  "subplot_board.md": "Tiến độ tuyến phụ",
+  "story_bible.md": "Thiết lập thế giới",
+  "volume_outline.md": "Kế hoạch các tập",
+  "book_rules.md": "Quy tắc tự sự",
+};
+
 // Language-aware display label for a foundation truth file. Returns undefined
 // for files that are not part of the foundation list (same qualification as
 // FOUNDATION_FILE_LABELS).
 export function foundationFileLabel(name: string): string | undefined {
   const zh = FOUNDATION_FILE_LABELS[name];
   if (zh === undefined) return undefined;
-  return getAppLanguage() === "en" ? FOUNDATION_FILE_LABELS_EN[name] ?? zh : zh;
+  const language = getAppLanguage();
+  if (language === "vi") return FOUNDATION_FILE_LABELS_VI[name] ?? zh;
+  return language === "en" ? FOUNDATION_FILE_LABELS_EN[name] ?? zh : zh;
 }
 
 // --- current_state.md ---------------------------------------------------

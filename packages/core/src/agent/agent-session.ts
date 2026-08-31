@@ -928,6 +928,7 @@ function createModeTools(params: CreateAgentToolsForModeParams) {
     if (isConfirmed("play_start")) {
       return [createPlayStartTool(params.pipeline, params.projectRoot, params.sessionId, params.playMode, {
         actionPayload: params.actionPayload,
+        ...(lang === "vi" ? { language: "vi" as const } : {}),
         defaultSkills: params.productionSkills?.("play"),
         activeSkills: params.activeSkills,
       })];
