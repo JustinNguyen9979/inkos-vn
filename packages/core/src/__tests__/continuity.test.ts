@@ -438,9 +438,10 @@ describe("ContinuityAuditor", () => {
       const systemPrompt = messages?.[0]?.content ?? "";
       const userPrompt = messages?.[1]?.content ?? "";
 
-      // Prompt declares structure-only scope and sparse-memo legality.
+      // Prompt audits both structural truth and reader experience while preserving sparse-memo legality.
       expect(systemPrompt).toContain("审稿边界");
-      expect(systemPrompt).toContain("你不审文笔");
+      expect(systemPrompt).toContain("你审完成度、结构、连续性、因果逻辑、人物行为和真实阅读体验");
+      expect(systemPrompt).toContain("必须计入 overall_score");
       expect(systemPrompt).toContain("稀疏 memo 是合法状态");
       expect(systemPrompt).toContain("章节备忘偏离");
       expect(systemPrompt).not.toContain("大纲偏离检测");

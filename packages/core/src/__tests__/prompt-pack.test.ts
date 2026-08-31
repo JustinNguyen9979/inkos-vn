@@ -31,7 +31,10 @@ describe("prompt pack loader", () => {
   });
 
   it("keeps longform audit and revision focused on binding intent before style", () => {
-    expect(getBuiltinPrompt("longform.auditor")?.content).toContain("critical structural failure");
+    const auditor = getBuiltinPrompt("longform.auditor")?.content;
+    expect(auditor).toContain("protected intent and explicit acceptance criteria");
+    expect(auditor).toContain("machine-like writing");
+    expect(auditor).toContain("must score below 85");
     expect(getBuiltinPrompt("longform.reviser")?.content).toContain("critical author-intent and canon issue");
   });
 

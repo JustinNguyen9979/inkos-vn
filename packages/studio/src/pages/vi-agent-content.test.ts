@@ -55,6 +55,24 @@ describe("Vietnamese agent content", () => {
     expect(localized.prompts[0]?.content).toContain("hướng dẫn khởi tạo thế giới");
   });
 
+  it("shows the strict Vietnamese reader-experience rubric for the longform auditor", () => {
+    const prompt = BUILTIN_PROMPTS.find((item) => item.id === "longform.auditor");
+    expect(prompt).toBeDefined();
+    const localized = localizePromptPacksForVietnamese({
+      packs: [],
+      prompts: [{
+        ...prompt!,
+        defaultContent: prompt!.content,
+        source: "builtin",
+        overridden: false,
+      }],
+    });
+
+    expect(localized.prompts[0]?.content).toContain("văn học tiếng Việt có sức sống");
+    expect(localized.prompts[0]?.content).toContain("điểm phải dưới 85");
+    expect(localized.prompts[0]?.content).toContain("Không được chỉ nói mơ hồ");
+  });
+
   it("covers every built-in prompt pack and prompt", () => {
     const localized = localizePromptPacksForVietnamese({
       packs: BUILTIN_PROMPT_PACKS,
