@@ -329,6 +329,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     computeAnalytics: vi.fn(() => ({})),
     isSafeBookId: actual.isSafeBookId,
     normalizePlatformOrOther: actual.normalizePlatformOrOther,
+    safeExportName: actual.safeExportName,
     defaultChapterLength: actual.defaultChapterLength,
     inferLanguage: actual.inferLanguage,
     ingestMaterial: actual.ingestMaterial,
@@ -3085,6 +3086,8 @@ describe("createStudioServer daemon lifecycle", () => {
         approvedOnly: true,
       }),
     }));
+    const request = processProjectInteractionRequestMock.mock.calls.at(-1)?.[0]?.request;
+    expect(request).not.toHaveProperty("outputPath");
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       chapters: 2,

@@ -1239,9 +1239,11 @@ describe("agent deterministic writing tools", () => {
 
     expect(result.content[0]?.type).toBe("text");
     if (result.content[0]?.type === "text") {
-      expect(result.content[0].text).toContain(".txt");
+      expect(result.content[0].text).toContain(join("Output", "Harbor"));
       expect(result.content[0].text).not.toContain(".epub");
     }
+    await expect(readFile(join(root, "Output", "Harbor", "chapter3.txt"), "utf-8"))
+      .resolves.toContain("Lin Yue kept the jade seal");
   });
 
   it("documents sub_agent bookId as an optional active-book override", () => {
@@ -1409,8 +1411,10 @@ describe("agent deterministic writing tools", () => {
 
     expect(result.content[0]?.type).toBe("text");
     if (result.content[0]?.type === "text") {
-      expect(result.content[0].text).toContain(".md");
+      expect(result.content[0].text).toContain(join("Output", "Harbor"));
     }
+    await expect(readFile(join(root, "Output", "Harbor", "chapter3.md"), "utf-8"))
+      .resolves.toContain("Lin Yue kept the jade seal");
   });
 
   it("keeps read tool scoped to books by default", async () => {

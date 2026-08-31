@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -980,7 +980,7 @@ describe("CLI integration", () => {
         join(bookDir, "book.json"),
         JSON.stringify({
           id: "export-book",
-          title: "Export Book",
+          title: "Truyền nhân cuối cùng",
           platform: "tomato",
           genre: "xuanhuan",
           status: "active",
@@ -1020,7 +1020,18 @@ describe("CLI integration", () => {
 
       expect(data.outputPath).toBe(outputPath);
       await expect(stat(outputPath)).resolves.toBeTruthy();
-      await expect(readFile(outputPath, "utf-8")).resolves.toContain("# Export Book");
+      await expect(readFile(outputPath, "utf-8")).resolves.toContain("# Truyền nhân cuối cùng");
+    });
+
+    it("exports chapters into a Unicode book-title folder by default", async () => {
+      const output = run(["export", "export-book", "--format", "txt", "--json"]);
+      const data = JSON.parse(output);
+      const outputDir = join(projectDir, "Output", "Truyền nhân cuối cùng");
+
+      expect(data.outputPath).toBe(await realpath(outputDir));
+      expect(data.chaptersExported).toBe(1);
+      await expect(readFile(join(outputDir, "chapter1.txt"), "utf-8"))
+        .resolves.toContain("正文。");
     });
   });
 });

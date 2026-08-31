@@ -1,10 +1,9 @@
 import { Command } from "commander";
 import { StateManager, writeExportArtifact } from "@actalk/inkos-core";
-import { join } from "node:path";
 import { findProjectRoot, resolveBookId, log, logError } from "../utils.js";
 
 export const exportCommand = new Command("export")
-  .description("Export book chapters to a single file")
+  .description("Export book chapters to Output/<book title>/chapterN.<format>")
   .argument("[book-id]", "Book ID (auto-detected if only one book)")
   .option("--format <format>", "Output format (txt, md, epub)", "txt")
   .option("--output <path>", "Output file path")
@@ -19,7 +18,7 @@ export const exportCommand = new Command("export")
       const result = await writeExportArtifact(state, bookId, {
         format: opts.format as "txt" | "md" | "epub",
         approvedOnly: Boolean(opts.approvedOnly),
-        outputPath: opts.output ?? join(root, `${bookId}_export.${opts.format}`),
+        ...(opts.output ? { outputPath: opts.output } : {}),
       });
 
       if (opts.json) {

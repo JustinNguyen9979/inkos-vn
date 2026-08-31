@@ -40,6 +40,7 @@ import {
   chatCompletion,
   runWorkerAgent,
   buildExportArtifact,
+  safeExportName,
   evaluateBookQuality,
   ConsolidatorAgent,
   DetectionConfigSchema,
@@ -5452,8 +5453,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
       const tools = createInteractionToolsFromDeps(pipeline, state);
-      const bookDir = state.bookDir(id);
-      const outputPath = join(bookDir, `${id}.${fmt === "epub" ? "epub" : fmt}`);
+      const book = await state.loadBookConfig(id);
+      const exportName = safeExportName(book.title, id);
+      const outputPath = fmt === "epub"
+        ? join(root, "Output", exportName, `${exportName}.epub`)
+        : join(root, "Output", exportName);
       const result = await processProjectInteractionRequest({
         projectRoot: root,
         request: {
@@ -5461,7 +5465,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           bookId: id,
           format: fmt as "txt" | "md" | "epub",
           approvedOnly,
-          outputPath,
         },
         tools,
         activeBookId: id,

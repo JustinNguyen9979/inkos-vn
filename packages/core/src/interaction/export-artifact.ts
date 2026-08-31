@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { EPub } from "epub-gen-memory";
 
@@ -20,6 +20,21 @@ export interface ExportArtifact {
   readonly format: "txt" | "md" | "epub";
   readonly contentType: string;
   readonly payload: string | Buffer;
+}
+
+export function safeExportName(title: string, fallback = "book"): string {
+  const cleaned = title
+    .normalize("NFC")
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/[-. ]+$/g, "")
+    .replace(/-+/g, "-")
+    .slice(0, 120)
+    .trim();
+  const candidate = cleaned || fallback;
+  return /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(candidate)
+    ? `_${candidate}`
+    : candidate;
 }
 
 function buildChapterFileLookup(files: ReadonlyArray<string>): ReadonlyMap<number, string> {
@@ -78,7 +93,8 @@ export async function buildExportArtifact(
   const bookDir = state.bookDir(bookId);
   const chaptersDir = join(bookDir, "chapters");
   const projectRoot = dirname(dirname(bookDir));
-  const outputPath = options.outputPath ?? join(projectRoot, `${bookId}_export.${format}`);
+  const exportName = safeExportName(book.title, bookId);
+  const outputPath = options.outputPath ?? join(projectRoot, "Output", exportName, `${exportName}.${format}`);
   const chapterFiles = buildChapterFileLookup(await readdir(chaptersDir));
   const totalWords = chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0);
 
@@ -99,7 +115,7 @@ export async function buildExportArtifact(
     );
     return {
       outputPath,
-      fileName: `${bookId}.epub`,
+      fileName: `${exportName}.epub`,
       chaptersExported: chapters.length,
       totalWords,
       format,
@@ -121,7 +137,7 @@ export async function buildExportArtifact(
 
   return {
     outputPath,
-    fileName: `${bookId}.${format}`,
+    fileName: `${exportName}.${format}`,
     chaptersExported: chapters.length,
     totalWords,
     format,
@@ -137,9 +153,45 @@ export async function writeExportArtifact(
     readonly format?: "txt" | "md" | "epub";
     readonly approvedOnly?: boolean;
     readonly outputPath?: string;
+    readonly splitChapters?: boolean;
   },
 ): Promise<Omit<ExportArtifact, "payload" | "contentType" | "fileName">> {
   const artifact = await buildExportArtifact(state, bookId, options);
+  const shouldSplitChapters = artifact.format !== "epub"
+    && (options.splitChapters ?? options.outputPath === undefined);
+  if (shouldSplitChapters) {
+    const index = await state.loadChapterIndex(bookId);
+    const chapters = options.approvedOnly
+      ? index.filter((chapter) => chapter.status === "approved")
+      : index;
+    const chaptersDir = join(state.bookDir(bookId), "chapters");
+    const chapterFiles = buildChapterFileLookup(await readdir(chaptersDir));
+    const outputDir = options.outputPath ?? dirname(artifact.outputPath);
+    await mkdir(outputDir, { recursive: true });
+
+    for (const file of await readdir(outputDir)) {
+      if (/^chapter\d+\.(?:txt|md)$/i.test(file)) {
+        await rm(join(outputDir, file), { force: true });
+      }
+    }
+
+    let chaptersExported = 0;
+    for (const chapter of chapters) {
+      const sourceFile = chapterFiles.get(chapter.number);
+      if (!sourceFile) continue;
+      const content = await readFile(join(chaptersDir, sourceFile), "utf-8");
+      await writeFile(join(outputDir, `chapter${chapter.number}.${artifact.format}`), content, "utf-8");
+      chaptersExported += 1;
+    }
+
+    return {
+      outputPath: outputDir,
+      chaptersExported,
+      totalWords: artifact.totalWords,
+      format: artifact.format,
+    };
+  }
+
   await mkdir(dirname(artifact.outputPath), { recursive: true });
   await writeFile(artifact.outputPath, artifact.payload);
   return {
