@@ -1028,7 +1028,7 @@ describe("CLI integration", () => {
       const data = JSON.parse(output);
       const outputDir = join(projectDir, "Output", "Truyền nhân cuối cùng");
 
-      expect(data.outputPath).toBe(await realpath(outputDir));
+      expect(await realpath(data.outputPath)).toBe(await realpath(outputDir));
       expect(data.chaptersExported).toBe(1);
       await expect(readFile(join(outputDir, "chapter1.txt"), "utf-8"))
         .resolves.toContain("正文。");
